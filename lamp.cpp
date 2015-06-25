@@ -122,7 +122,7 @@ void Plink::LampAssocFull(Perm & perm)
 			bool s1 = *i1;
 			bool s2 = *i2;
 			//////////////////////////////////////////////////////////////////////////////////
-			if ( ! pperson->missing  )
+			if ( ! pperson->missing  ) // if the phenotype is not missing value
 			{
 				//printf("%d,%d ",s1,s2);
 				// Only consider diploid chromosomes
@@ -131,6 +131,7 @@ void Plink::LampAssocFull(Perm & perm)
 					//printf("%d,%d ",s1,s2);
 					if ( pperson->aff )     // cases
 					{
+					  //printf("a,%d,%d \n",s1,s2);
 						if ( ! s1 )
 						{
 							if ( ! s2 )     // Homozyg 00
@@ -138,20 +139,29 @@ void Plink::LampAssocFull(Perm & perm)
 							else            // Hetero  01
 								A12++;
 						}
+						else                // Homozyg 11 or missing genotype
+						  A22++;
+						/*
 						else if ( s2 )      // Homozyg 11
 							A22++;
+						*/
 					}
 					else
 					{
+					  //printf("u,%d,%d ",s1,s2);
 						if ( !s1 )
 						{
-							if ( !s2 )      // Homozyg 00
-								U11++;
-							else            // Hetero  01
+						  if ( !s2 )       // Homozyg 00
+							U11++;
+						  else             // Hetero  01
 								U12++;
 						}
+						else                // Homozyg 11 or missing genotype
+						  U22++;
+						/*
 						else if ( s2 )      // Homozyg 11
 							U22++;
+						*/
 					}
 
 
