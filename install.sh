@@ -1,8 +1,9 @@
 #!/bin/bash
 
-LAMPURL="https://github.com/a-terada/lamp/archive/master.zip"
+LAMPVER="2.0.3"
+LAMPURL="https://github.com/a-terada/lamp/archive/${LAMPVER}.zip"
 LAMPDIR="lamp"
-LAMPFILE="master.zip"
+LAMPFILE="${LAMPVER}.zip"
 
 PLINKURL="http://pngu.mgh.harvard.edu/~purcell/plink/dist/plink-1.07-src.zip"
 PLINKDIR="src"
@@ -19,7 +20,7 @@ else
 fi
 if [ ! -d ${LAMPDIR} ];then
     unzip ${LAMPFILE}
-    mv lamp-master ${LAMPDIR}
+    mv lamp-${LAMPVER} ${LAMPDIR}
 fi
 pushd ${LAMPDIR}
 echo "Installing LAMP library..."
