@@ -5,7 +5,7 @@
 //                                                              //
 // This code is modified from PLINK v1.07                       //
 // (http://pngu.mgh.harvard.edu/~purcell/plink/) to implement   //
-// additional options (--lamplink and --lamp-ld-removed)        //
+// additional options (--lamp and --lamp-ld-removed)            //
 // for the combinatorial detection with LAMP                    //
 // (http://a-terada.github.io/lamp/).                           //
 //                                                              //
@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 	     "|------------------------------------------------------------------|\n"
 	     "|  This software is modified from PLINK v1.07                      |\n"
 		 "|  (http://pngu.mgh.harvard.edu/purcell/plink/) to implement       |\n"
-         "|  additional options (--lamplink and --lamp-ld-remoed)            |\n"   
+         "|  additional options (--lamp and --lamp-ld-remoed)            |\n"   
          "|  for the combinatorial detection with LAMP                       |\n"   
          "|  (http://a-terada.github.io/lamp/).                              |\n"
 	     "|  For documentation, citation & bug-report instructions:          |\n"

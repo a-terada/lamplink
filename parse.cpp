@@ -5,7 +5,7 @@
 //                                                              //
 // This code is modified from PLINK v1.07                       //
 // (http://pngu.mgh.harvard.edu/~purcell/plink/) to implement   //
-// additional options (--lamplink and --lamp-ld-removed)        //
+// additional options (--lamp and --lamp-ld-removed)            //
 // for the combinatorial detection with LAMP                    //
 // (http://a-terada.github.io/lamp/).                           //
 //                                                              //
@@ -4407,7 +4407,7 @@ void setOptions(CArgs & a)
     if ( ! a.find("--sglev"))
      error("Must specify --sglev X.XX also if --lamp used");
     if ( ! a.find("--upper"))
-     par::MAF_UPPER=0.15;
+     par::MAF_UPPER=0.1;
     if ( ! a.find("--model-dom") && ! a.find("--model-rec"))
      error("Must specify --model-dom or --model-rec also if --lamp used");
    }

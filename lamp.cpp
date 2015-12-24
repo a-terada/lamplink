@@ -4,7 +4,7 @@
 //          LAMPLINK (c) 2015 LAMP development team             //
 //                                                              //
 // This code is written to add options                          //
-// (--lamplink and --lamp-ld-removed) to PLINK v1.07            //
+// (--lamp and --lamp-ld-removed) to PLINK v1.07                //
 // (http://pngu.mgh.harvard.edu/~purcell/plink/)                //
 // for the combinatorial detection with LAMP                    //
 // (http://a-terada.github.io/lamp/).                           //

@@ -5,7 +5,7 @@
 //                                                              //
 // This code is modified from PLINK v1.07                       //
 // (http://pngu.mgh.harvard.edu/~purcell/plink/) to implement   //
-// additional options (--lamplink and --lamp-ld-removed)        //
+// additional options (--lamp and --lamp-ld-removed)            //
 // for the combinatorial detection with LAMP                    //
 // (http://a-terada.github.io/lamp/).                           //
 //                                                              //
