@@ -493,6 +493,7 @@ void Plink::LampAssocFull(Perm & perm)
 void Plink::makeLampInput()
 {
 	printf("Plink::makeLampInput\n");
+	printLOG("MAF upper: " + dbl2str( par::MAF_UPPER ) + "\n");
 	vector<Individual*>::iterator gperson = sample.begin();
 	ofstream iASC,vASC;
 	int l = 0 ;
@@ -822,6 +823,7 @@ void Plink::readLamplinkfile()
 	string fname= par::combfilename+".lamplink";
 	checkFileExists(fname);
 	printLOG("read_lamplinkfile.........."+fname+"\n");
+	printLOG("lamp-r2: " + dbl2str( par::LAMP_R2 ) + "\n");
 	ifstream fLAMP;
 	fLAMP.open(fname.c_str());
 	fLAMP.clear();

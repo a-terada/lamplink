@@ -4406,8 +4406,8 @@ void setOptions(CArgs & a)
      error("Use either --file {root} OR --bfile {root} OR --ped {name} --map {name} OR --bed {name} --bim {name} --fam {name}");
     if ( ! a.find("--sglev"))
      error("Must specify --sglev X.XX also if --lamp used");
-    if ( ! a.find("--upper"))
-     par::MAF_UPPER=0.1;
+    //if ( ! a.find("--upper"))
+	//par::MAF_UPPER=0.1;
     if ( ! a.find("--model-dom") && ! a.find("--model-rec"))
      error("Must specify --model-dom or --model-rec also if --lamp used");
    }
@@ -4430,8 +4430,8 @@ void setOptions(CArgs & a)
                 && ( ! (a.find("--ped") || a.find("--map"))) \
                 && ! (a.find("--bim") || a.find("--bed") || a.find("--fam") ))
         error("Use either --file {root} OR --bfile {root} OR --ped {name} --map {name} OR --bed {name} --bim {name} --fam {name}");
-      if( ! a.find("--lamp-r2"))
-        par::LAMP_R2=0.8;
+      //if( ! a.find("--lamp-r2"))
+	  //par::LAMP_R2=0.8;
    }
 
   if( a.find("--comb"))
