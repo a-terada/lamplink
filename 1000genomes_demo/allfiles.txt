@@ -1,0 +1,6 @@
+CHB.ped CHB.map
+CHD.ped CHD.map
+JPT.ped JPT.map
+LWK.ped LWK.map
+TSI.ped TSI.map
+YRI.ped YRI.map
