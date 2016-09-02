@@ -1,0 +1,512 @@
+
+<!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js lt-ie9 lt-ie8 lt-ie7 ie" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js lt-ie9 lt-ie8 ie" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js lt-ie9 ie" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>LAMPLINK - detection of statistically significant epistatic interactions</title>
+	<meta name="author" content="LAMP development team">
+	<link href='./assets/themes/the-program/css/style.css' rel="stylesheet" media="all">
+	<link href="http://feeds.feedburner.com/" rel="alternate" title="LAMPLINK - detection of statistically significant epistatic interactions" type="application/atom+xml">
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/modernizr/2.0.6/modernizr.min.js"></script>
+</head>
+<body>
+
+<div id="page" class="hentry">
+	<header class="the-header">
+		<div class="unit-head">
+			<div class="unit-inner unit-head-inner">
+				<nav class="nav-global">
+					<ul>
+						<li class="logo"><a href="http://a-terada.github.io/lamplink/">LAMPLINK</a></li>
+						<li><a href="#installation">Installation</a></li>
+						<li><a href="#demonstration">Demonstration</a></li>
+						<li><a href="#usage">Usage</a></li>
+						<li><a href="#faq">FAQ</a></li>
+						<li><a href="#contact">Contact</a></li>
+					</ul>
+				</nav>
+			</div><!-- unit-inner -->
+		</div><!-- unit-head -->
+	</header>
+	<div class="body" role="main">
+		<div class="unit-body">
+			<div class="unit-inner unit-body-inner">
+				<div class="entry-content">
+					
+<article class="unit-article layout-page">
+	<div class="unit-inner unit-article-inner">
+		<div class="content">
+			<header>
+				<div class="unit-head">
+					<div class="unit-inner unit-head-inner">
+						<h1 class="h2 entry-title">LAMPLINK - detection of statistically significant epistatic interactions</h1>
+					</div><!-- unit-inner -->
+				</div><!-- unit-head -->
+			</header>
+
+			<div class="bd">
+				<div class="entry-content">
+					
+<p>The LAMPLINK can detect statistically significant epistatic interactions of two or more SNPs from GWAS data. 
+This software can be used in the same way as the widely used GWAS analysis software <a href="http://pngu.mgh.harvard.edu/~purcell/plink/">PLINK</a>, but LAMPLINK has the additional options for the detection of epistatic interactions with <a href="http://a-terada.github.io/lamp/">LAMP</a>, which is a multiple testing procedure for combinatorial effects discovery.
+You can apply LAMPLINK to an analysis pipeline with PLINK simply by replacing <code>plink</code> with <code>lamplink</code> and adding the <code>--lamp</code> option.</p>
+
+<h1 id="installation">Installation</h1>
+
+<p>LAMPLINK currently works with C++ and Python 2.7 on Linux.
+If installation fails, please check the <a href="#faq">FAQ</a> section or contact <a href="#contact">us</a>.</p>
+
+<p>LAMPLINK is available from <a href="https://github.com/a-terada/lamplink/archive/master.zip">lamplink.zip</a>.
+After download the zip file, LAMPLINK is installed in <code>lamplink/</code> using the following command.</p>
+
+<pre><code>$ ./install.sh
+</code></pre>
+
+<h1 id="demonstration">Demonstration</h1>
+
+<p>We show an example of LAMPLINK using a sample GWAS dataset in example/.</p>
+
+<ul>
+  <li>lamplink_sample.map: Annotation file for each SNP locus</li>
+  <li>lamplink_sample.ped: Sample information file such as phenotype and genotype</li>
+</ul>
+
+<p>The following command finds all of the significant combinations with Fisher’s exact test. 
+The significance level was set as 0.05.</p>
+
+<pre><code>$ ./lamplink --file ./example/lamplink_sample --lamp --model-dom --sglev 0.05 --upper 0.5 --out example --fisher
+</code></pre>
+
+<p>When LAMPLINK completes successfully, the result is output in example.lamplink and example.lamp.</p>
+
+<p>example.lamp:</p>
+
+<pre><code>COMBID     Raw_P           Adjusted_P   COMB
+ COMB1     0.006993     0.034965     rs7817762,rs2631899,rs1841195
+</code></pre>
+
+<p>This file indicates that one combination of SNPs (rs7817762, rs2631899, and rs1841195) was significantly  associated with the phenotype after the multiple testing correction. 
+The raw and adjusted P-values are 0.006993 and 0.034965, respectively.</p>
+
+<p>example.lamplink:</p>
+
+<pre><code> CHR    SNP                 A1   A2    TEST            AFF          UNAFF    P                      OR       COMB1
+ 8        rs7817762    2      1       DOM            5/2            1/7      0.0405594     17.5    1 
+ 8        rs2631899    2      1       DOM            5/2            2/6      0.131935        7.5      1 
+ 8        rs1841195    2      1       DOM            5/2            1/7      0.0405594     17.5    1 
+ 8        rs1564125    2      1       DOM            2/5            4/4      0.608392        0.4      0
+</code></pre>
+
+<p>This file reports detailed information about each of the SNPs. 
+Column P shows the P-value of the SNP. 
+If the value in COMB1 is 1, the SNP is a member of COMB1 in example.lamp.</p>
+
+<p>The output file formats are described in <a href="#output-file-format">Output file format</a>.</p>
+
+<h1 id="usage">Usage</h1>
+
+<p>LAMPLINK contains the following user-selectable functions.</p>
+
+<ul>
+  <li><a href="#detect-significant-epistatic-interactions">Main function</a>: Detect significant epistatic interactions (<code>--lamp</code> option)</li>
+  <li><a href="#post-processing">Post-processing</a>: Eliminate SNP combinations that show linkage disequilibrium (LD) (<code>--lamp-ld-remove</code> option)</li>
+  <li>All functions implemented in PLINK v1.07 (<a href="http://pngu.mgh.harvard.edu/~purcell/plink/reference.shtml#options">list of PLINK options</a>).</li>
+</ul>
+
+<h2 id="detect-significant-epistatic-interactions">Detect significant epistatic interactions</h2>
+
+<p>The following options are available in LAMPLINK to enumerate significant epistatic interactions.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Option</th>
+      <th style="text-align: left">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">--lamp</td>
+      <td style="text-align: left">Find combinatorial elements using LAMP</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--file (or --bfile) &lt;filename&gt;</td>
+      <td style="text-align: left">Input filename without the extension</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--out &lt;filename&gt;</td>
+      <td style="text-align: left">Output filename (default “lamplink.***”)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--model-dom (or –model-rec)</td>
+      <td style="text-align: left">dom: minor allele is dominant, rec: minor allele is recessive</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--fisher</td>
+      <td style="text-align: left">Use Fisher’s exact test as the statistical significance test (default is Chi-square test)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--ci &lt;value&gt;</td>
+      <td style="text-align: left">Output confidence interval for CMH odds ratios</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--sglev &lt;value&gt;</td>
+      <td style="text-align: left">Set statistical significance level used in LAMP (default is 0.05)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--upper &lt;value&gt;</td>
+      <td style="text-align: left">Set maximum MAF value (default is 0.1)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="input-file-format">Input file format</h3>
+
+<p>Input files should be set with the <code>--file</code> or <code>--bfile</code> option. 
+For inputs using <code>--file filename</code>, filename.ped and filename.map files should exist. 
+For inputs using <code>--bfile</code>, filename.bed, filename.bim, and filename.fam files should exist.</p>
+
+<p>For detailed descriptions of the required formats, please refer to <a href="http://pngu.mgh.harvard.edu/~purcell/plink/data.shtml">Basic usage / data formats (PLINK web page)</a>.</p>
+
+<h3 id="output-file-format">Output file format</h3>
+
+<p>Results are output in two files.</p>
+
+<ul>
+  <li>lamplink.lamp: result file of LAMP</li>
+  <li>lamplink.lamplink: integrated file of the results of LAMP and PLINK</li>
+</ul>
+
+<p>The filename can be changed using the <code>--out</code> option.</p>
+
+<h4 id="lamplinklamp">lamplink.lamp</h4>
+
+<p>The lamplink.lamp file contains the following columns:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Column</th>
+      <th style="text-align: left">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">COMBID</td>
+      <td style="text-align: left">Combination ID corresponding to COMBID in lamplink.lamplink</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Raw_P</td>
+      <td style="text-align: left">P-value</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Adjusted_P</td>
+      <td style="text-align: left">Adjusted P-value</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">COMB</td>
+      <td style="text-align: left">SNPs that are members of the combination</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="lamplinklamplink">lamplink.lamplink</h4>
+
+<p>The lamplink.lamplink file contains the following columns independent of the statistical significance test:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Column</th>
+      <th style="text-align: left">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">CHR</td>
+      <td style="text-align: left">Chromosome number</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">SNP</td>
+      <td style="text-align: left">SNP name</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">A1</td>
+      <td style="text-align: left">Minor allele name (calculated from the input ped file)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">A2</td>
+      <td style="text-align: left">Major allele name</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Test</td>
+      <td style="text-align: left">DOM: minor allele is dominant, REC: minor allele is recessive (This output depends on the input option)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">AFF</td>
+      <td style="text-align: left">Frequency of this allele in cases</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">UNAFF</td>
+      <td style="text-align: left">Frequency of this allele in controls</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">P</td>
+      <td style="text-align: left">P-value for this SNP</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">OR</td>
+      <td style="text-align: left">Estimated odds ratio (for A1, i.e., A2 is the reference)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">COMBx</td>
+      <td style="text-align: left">1: This SNP is a member of COMBx, 0: This SNP is absent from COMBx, x: Combination ID that corresponds to COMID in lamplink.lamp</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The lamplink.lamplink file contains the following additional columns when the Chi-square test is used:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Column</th>
+      <th style="text-align: left">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">CHSQ</td>
+      <td style="text-align: left">Chi-square score</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">DF</td>
+      <td style="text-align: left">Degree of freedom</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The lamplink.lamplink file contains the following additional columns when the <code>--ci</code> option is used:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Column</th>
+      <th style="text-align: left">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Lx</td>
+      <td style="text-align: left">Lower bound of x% confidence interval for odds ratio</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Ux</td>
+      <td style="text-align: left">Upper bound of x% confidence interval for odds ratio</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="post-processing">Post-processing</h2>
+
+<p>The following options can be used to eliminate redundant SNP combinations.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Option</th>
+      <th style="text-align: left">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">--lamp-ld-remove</td>
+      <td style="text-align: left">Eliminate SNP combinations in LD</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--file (or --bfile) &lt;filename&gt;</td>
+      <td style="text-align: left">Input filename without the extension</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--comb &lt;filename&gt;</td>
+      <td style="text-align: left">Result filenames set with the --lamp option (“***.lamplink” and “***.lamp”) without the extension</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--out &lt;filename&gt;</td>
+      <td style="text-align: left">Output filename (default is “lamplink.***”)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--lamp-r2 <value></value></td>
+      <td style="text-align: left">Set the threshold for the r-squared value (default is 0.8)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The commands used to detect significant combinations and to eliminate redundant SNP combinations are shown using the example files example/lamplink_sample.map and example/lamplink_sample.ped.</p>
+
+<pre><code>$ ./lamplink --file ./example/lamplink_sample --lamp --model-dom --sglev 0.3 --upper 0.5 --out example2 --fisher
+$ ./lamplink --file ./example/lamplink_sample --comb example2 --lamp-ld-remove --out example2_elimld --lamp-r2 0.5
+</code></pre>
+
+<p>When the results in example2.lamp and example2_elimld.lamp were compared, COMB1 was eliminated from example2_elimld.lamp.</p>
+
+<p>example2.lamp:</p>
+
+<pre><code>COMBID     Raw_P           Adjusted_P    COMB
+ COMB1     0.006993     0.034965      rs7817762,rs2631899,rs1841195
+ COMB2     0.040559     0.2028           rs7817762
+ COMB3     0.040559     0.2028           rs1841195
+</code></pre>
+
+<p>example2_elimld.lamp:</p>
+
+<pre><code>COMBID     Raw_P           Adjusted_P    COMB
+ COMB2     0.040559     0.2028           rs7817762 
+ COMB3     0.040559     0.2028           rs1841195
+</code></pre>
+
+<h1 id="faq">FAQ</h1>
+
+<ul>
+  <li>If the install process fails because of Python header problem, please check the following points.
+    <ul>
+      <li>The installer assumes:
+        <ul>
+          <li>Python headers are installed in <code>/usr/include/python2.7</code></li>
+          <li>Python libraries are installed in <code>/usr/lib64</code></li>
+        </ul>
+      </li>
+      <li>When Python is installed in different directories, please change lines 67 to 69 in src/Makefile in the installed directory as shown in the following example:</li>
+    </ul>
+  </li>
+</ul>
+<pre><code>CXXFLAGS += -I$HOME/anaconda/include/python2.7
+LIB += -lpython2.7
+CXXFLAGS += -L$HOME/anaconda/lib
+</code></pre>
+
+<h1 id="license">License</h1>
+
+<p>LAMPLINK is distributed under the GNU General Public License, Version 2. 
+Please see <a href="https://www.gnu.org/licenses/gpl-2.0.html">GNU General Public License, version 2</a> for more details.</p>
+
+<h1 id="contributors">Contributors</h1>
+
+<p>LAMPLINK was developed through discussions with Aika Terada, Jun Sese, and Koji Tsuda.</p>
+
+<h1 id="contact">Contact</h1>
+
+<p>Please contact us at the address below if you find a bug or need further information.</p>
+
+<ul>
+  <li>lamp_staff(AT)googlegroups.com</li>
+</ul>
+
+<h1 id="reference">Reference</h1>
+
+<ul>
+  <li>LAMP
+    <ul>
+      <li>Terada, A., Okada-Hatakeyama, M., Tsuda, K., &amp; Sese, J. (2013). <a href="http://www.pnas.org/content/110/32/12996.abstract">Statistical significance of combinatorial regulations</a>. Proc. Natl. Acad. Sci. USA, 110(32), 12996–13001.</li>
+      <li><a href="http://a-terada.github.io/lamp/">software</a></li>
+    </ul>
+  </li>
+  <li>PLINK
+    <ul>
+      <li>Purcell, S., Neale, B., Todd-Brown, K., et al. (2007). <a href="http://www.sciencedirect.com/science/article/pii/S0002929707613524">PLINK: a tool set for whole-genome association and population-based linkage analyses</a>. American Journal of Human Genetics, 81(3), 559–575.</li>
+      <li><a href="http://pngu.mgh.harvard.edu/~purcell/plink/">software</a></li>
+    </ul>
+  </li>
+</ul>
+
+				</div><!-- entry-content -->
+			</div><!-- bd -->
+			<footer class="unit-foot">
+				<div class="unit-inner unit-foot-inner">
+					<p class="gotop">
+						<a href="#page">Back to Top</a>
+					</p>
+				</div>
+			</footer>
+
+		</div><!-- content -->
+	</div><!-- unit-inner -->
+</article>
+
+
+				</div>
+			</div><!-- unit-inner -->
+		</div><!-- unit-body -->
+	</div><!-- body -->
+	<footer class="the-footer">
+		<div class="unit-foot">
+			<div class="unit-inner unit-foot-inner">
+				<p class="licence">
+				  &copy; LAMP development team 2015 
+					with help from <a href="http://themes.jekyllbootstrap.com/preview/the-program/">the-program</a> based on <a href="http://jekyllbootstrap.com/">Jekyll-bootstrap</a>.
+				</p>
+			</div><!-- unit-foot-inner -->
+		</div><!-- unit-foot -->
+	</footer>
+
+</div><!-- page -->
+<script>
+	(function(d, s) {
+		var js, fjs = d.getElementsByTagName(s)[0], load = function(url, id) {
+		if (d.getElementById(id)) {return;}
+		js = d.createElement(s); js.src = url; js.id = id;
+		fjs.parentNode.insertBefore(js, fjs);
+		};
+	load('//platform.twitter.com/widgets.js', 'tweetjs');
+	// load('https://apis.google.com/js/plusone.js', 'gplus1js'); // Checkout http://j.mp/ApDgMr for usage html for this is <div class="g-plusone" data-size="medium"></div>
+	// load('//connect.facebook.net/en_US/all.js#xfbml=1', 'fbjssdk'); // Checkout http://j.mp/wZw2xR for using open graph protorol html for this is <div class="fb-like" data-href="/index.html" data-send="false" data-layout="button_count" data-width="450" data-show-faces="false" data-font="verdana"></div>
+	}(document, 'script'));
+</script>
+<script>
+/*! A fix for the iOS orientationchange zoom bug.Script by @scottjehl, rebound by @wilto. MIT License.*/
+(function(j){var i=j.document;if(!i.querySelectorAll){return}var l=i.querySelectorAll("meta[name=viewport]")[0],a=l&&l.getAttribute("content"),h=a+", maximum-scale=1.0",d=a+", maximum-scale=10.0",g=true,c=j.orientation,k=0;if(!l){return}function f(){l.setAttribute("content",d);g=true}function b(){l.setAttribute("content",h);g=false}function e(m){c=Math.abs(j.orientation);k=Math.abs(m.gamma);if(k>8&&c===0){if(g){b()}}else{if(!g){f()}}}j.addEventListener("orientationchange",f,false);j.addEventListener("deviceorientation",e,false)})(this);
+</script>
+  
+  
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-37265974-5', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+</body>
+</html>
+
