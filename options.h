@@ -1170,9 +1170,11 @@ class par {
   static bool write_dosage;
 
   static bool lamp;
+  static bool assoc_utest;
   static bool sglev;
   static double SGLEV;
-  static double MAF_UPPER ;
+  static double MAF_UPPER;
+  static int lamp_alternative;
 
   static bool read_combfile;
   static string combfilename;

@@ -1062,9 +1062,11 @@ bool par::dosage_hasMap = false;
 bool par::write_dosage = false;
 
 bool par::lamp= false;
+bool par::assoc_utest= false;
 bool par::sglev= false;
 double par::SGLEV;
-double par::MAF_UPPER =0.1;
+double par::MAF_UPPER =0.15;
+int par::lamp_alternative= 0; // 1:greater, 0:two.sided, -1:less
 bool par::read_combfile= false ;
 string par::combfilename="";
 bool par::lamp_ld_remove= false;

@@ -2,6 +2,7 @@
 //////////////////////////////////////////////////////////////////
 //                                                              //
 //          LAMPLINK (c) 2015 LAMP development team             //
+//                       March 27, 2015                         //
 //                                                              //
 // This code is modified from PLINK v1.07                       //
 // (http://pngu.mgh.harvard.edu/~purcell/plink/) to implement   //

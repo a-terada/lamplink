@@ -4396,18 +4396,22 @@ void setOptions(CArgs & a)
     error("Cannot specify --model with --assoc");
 
   /////////////////////////////////////////////
-  // LAMPLINK -- lamplink options
+  // LAMPLINK -- lamp options
   if ( a.find("--lamp"))
    {
     par::lamp=true;
+    if (a.find("--utest")) {
+      par::assoc_test = par::assoc_utest = true;
+      par::min_geno_cell = 0;
+    }
     if ( ! a.find("--file") && ! a.find("--bfile") \
                 && ! (a.find("--ped") && a.find("--map")) \
                 && ! (a.find("--bim") && a.find("--bed") && a.find("--fam") ))
      error("Use either --file {root} OR --bfile {root} OR --ped {name} --map {name} OR --bed {name} --bim {name} --fam {name}");
     if ( ! a.find("--sglev"))
      error("Must specify --sglev X.XX also if --lamp used");
-    //if ( ! a.find("--upper"))
-	//par::MAF_UPPER=0.1;
+    if ( ! a.find("--upper"))
+     par::MAF_UPPER=0.15;
     if ( ! a.find("--model-dom") && ! a.find("--model-rec"))
      error("Must specify --model-dom or --model-rec also if --lamp used");
    }
@@ -4418,6 +4422,20 @@ void setOptions(CArgs & a)
   }
   if ( a.find("--upper"))
    par::MAF_UPPER=a.value_double("--upper");
+  if ( a.find("--alternative")) {
+    string alt = a.value("--alternative");
+    if (alt == "greater") {
+      par::lamp_alternative=1;
+    }
+    else if (alt == "less") {
+      par::lamp_alternative=-1;
+    }
+    else if (alt == "two.sided") {
+      par::lamp_alternative=0;
+    }
+    else
+      error("Unknown alternative pattern.");
+  }
 
   /////////////////////////////////////////////
   // LAMPLINK -- lamp-ld-remove options
@@ -4430,8 +4448,8 @@ void setOptions(CArgs & a)
                 && ( ! (a.find("--ped") || a.find("--map"))) \
                 && ! (a.find("--bim") || a.find("--bed") || a.find("--fam") ))
         error("Use either --file {root} OR --bfile {root} OR --ped {name} --map {name} OR --bed {name} --bim {name} --fam {name}");
-      //if( ! a.find("--lamp-r2"))
-	  //par::LAMP_R2=0.8;
+      if( ! a.find("--lamp-r2"))
+        par::LAMP_R2=0.8;
    }
 
   if( a.find("--comb"))

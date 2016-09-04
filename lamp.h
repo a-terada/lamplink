@@ -19,7 +19,7 @@
 #ifndef __LAMP_H__
 #define __LAMP_H__
 
-#include <Python.h>
+//#include <Python.h>
 
 #include <string>
 #include <iostream>

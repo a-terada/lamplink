@@ -17,16 +17,17 @@
 
 
 #include <stdio.h>
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <fstream>
 #include <iomanip>
 #include <cmath>
-#include <algorithm>
 #include <map>
 #include <vector>
 #include <cassert>
+#include <boost/format.hpp>
 
 #include "plink.h"
 #include "fisher.h"
@@ -45,6 +46,7 @@ extern ofstream LOG;
 #include "genogroup.h"
 #include "haplowindow.h"
 #include "lamp.h"
+#include "LampCore.h"
 
 
 vector<string> split(string &str, char delim){
@@ -71,11 +73,12 @@ string Replace( string String1, string String2, string String3 )
 
 void Plink::LampAssocFull(Perm & perm)
 {
-	printf("Plink::LampAssocFul\n");
+	printf("Plink::LampAssocFull\n");
 	printLOG("Full-model association for Lamp tests, minimum genotype count: --cell " +
 			int2str(par::min_geno_cell) + "\n");
 
 	vector<double> results(nl_all);
+	vector<bool> minor1model(nl_all);
 	//LampAssoc *outputla = new LampAssoc;
 	vector<CSNP*>::iterator s = SNP.begin();
 	int l=0;
@@ -250,8 +253,16 @@ void Plink::LampAssocFull(Perm & perm)
 			mult_p = chiprobP(mult_chisq,1);
 
 		}
+		if(obs_A2 == 0 || obs_U1 == 0) {
+		  minor1model[l] = true;
+		} else if(obs_A1 * obs_U2 / (obs_A2 * obs_U1) >= 0) {
+		  minor1model[l] = true;
+		} else {
+		  minor1model[l] = false;
+		}
 
-
+		SNP.minor1model = minor1model;
+		
 		double gen_p, dom_p, rec_p;
 		gen_p = dom_p = rec_p = -9;
 		double dom_chisq, rec_chisq, gen_chisq;
@@ -493,7 +504,6 @@ void Plink::LampAssocFull(Perm & perm)
 void Plink::makeLampInput()
 {
 	printf("Plink::makeLampInput\n");
-	printLOG("MAF upper: " + dbl2str( par::MAF_UPPER ) + "\n");
 	vector<Individual*>::iterator gperson = sample.begin();
 	ofstream iASC,vASC;
 	int l = 0 ;
@@ -501,6 +511,7 @@ void Plink::makeLampInput()
 	string vfname=par::output_file_name + ".value";
 	iASC.open(ifname.c_str(),ios::out);
 	vASC.open(vfname.c_str(),ios::out);
+	vector<bool> minor1model = SNP.minor1model;
 
 	vASC<<"#IID,affection status\n";
 	iASC << "#IID,";
@@ -532,10 +543,16 @@ void Plink::makeLampInput()
 		{
 			//printf("pperson->fid:%s,pperson->iid:%s\n",pperson->fid.c_str(),pperson->iid.c_str());
 			vASC<< pperson->fid << "_" << pperson->iid <<",";
-			if (pperson->aff)
-				vASC<< "1\n";
-			else
-				vASC<< "0\n";
+			if (!par::assoc_utest) {
+			  if (pperson->aff)
+			    vASC<< "1\n";
+			  else
+			    vASC<< "0\n";
+			}
+			else {
+			  vASC<< pperson->phenotype;
+			  vASC<< "\n";
+			}
 			//iASC << "\n" ;
 			iASC << pperson->fid << "_" << pperson->iid << ",";
 			vector<CSNP*>::iterator s = SNP.begin();
@@ -562,19 +579,26 @@ void Plink::makeLampInput()
 					if ( ! s1 )
 					{
 						if ( ! s2 )
-						{// Homozyg 00 
-							iASC << "1"	;
+						{// Homozyg 00
+						        if( minor1model[n] ) {
+							      iASC << "1";
+						        } else
+							      iASC << "0";
 						}
 						else
 						{// Hetero  01
 							//printf("Hetero\n");
-							if(par::model_perm_dom) iASC << "1";
-							else if(par::model_perm_rec) iASC << "0";
+						        if(par::model_perm_dom) iASC << "1";
+							if(par::model_perm_rec) iASC << "0";
 						}
 					}
-					else if ( s2 )      // Homozyg 11
-						iASC << "0";
-					else
+					else if ( s2 ) {     // Homozyg 11
+					        if( minor1model[n] ) {
+							iASC << "0";
+						} else {
+							iASC << "1";
+						}
+					} else
 						iASC << "0";// missing
 					sep_flag=1;
 					snp_count++;
@@ -597,75 +621,99 @@ void Plink::makeLampInput()
 }
 void Plink::DoLamp()
 {
-	const char *scriptDirectoryName=LIB_LAMP;
-	printf("%s\n",scriptDirectoryName);
-	PyObject *pModule, *pTmp;
-	char *sTmp;
-	string cmd;
-	Py_Initialize();
-	PyObject *sysPath= PySys_GetObject("path");
-	PyObject *path = PyString_FromString(scriptDirectoryName);
-	PyList_Insert(sysPath, 0, path);
-	/* import module */
-	pModule = PyImport_ImportModule("lib-lamp");
-	if(pModule==NULL){
-		error("module not found.\n");
-	}else{
-		printf("module found.\n");
-		if (par::fisher_test)	cmd="-p fisher --alternative=two.sided ";
-		else	cmd="-p chi --alternative=two.sided ";
-		cmd=cmd+par::output_file_name + ".item "
-			+par::output_file_name + ".value "
-			+dbl2str(par::SGLEV) +" --lcm "+LIB_LAMP+"/lcm53/lcm" ;
-
-		//dummy_cmd
-		//cmd=cmd+" test_sample/lamp_sample/test_lamp.item "
-		//	+" test_sample/lamp_sample/test_lamp.value "
-		//	+dbl2str(par::SGLEV) +" --lcm "+LIB_LAMP+"/lcm53/lcm" ;
-
-		printLOG("lamp_cmd:"+cmd);
-		pTmp = PyObject_CallMethod(pModule, "lib_lamp","s",cmd.c_str());
-		/* convert PyObject to C */
-		PyArg_Parse(pTmp, "s", &sTmp);
-	}
-	Py_Finalize();
-	printf("python_finished\n%s\n");
-	
-	if(sTmp==NULL)
-		error("Lamp error. Please check inputfile.\n");
-	string lamp_result=sTmp;
-	vector<string> lamp_res=split(lamp_result,'!');
-	vector<string>::iterator ilamp_res=lamp_res.begin();
-	printLOG("-----lamp::info--------\n"+string(Replace(*ilamp_res,"\t","\n").c_str())+"\n");
-	//printLOG("datasize::"+int2str(lamp_res.size())+"\n");
-	if (lamp_res.size() < 2)
-		error("SNPs combination is nothing.\n");
-	vector<string> lamp_results = split(*(ilamp_res+1) ,'/');
-	vector<string>::iterator ilamp_result=lamp_results.begin();
-	//printf("lamp::data\n%s\n",(*(ilamp_res+1)).c_str());
-	while(ilamp_result!=lamp_results.end())
-	{
-		Lamp * res_lamp = new Lamp;
-		string recode= *ilamp_result;
-		vector<string> items=split(recode,'\t');
-		vector<string>::iterator item=items.begin();
-		int col_count=0;
-		while(item!=items.end())
-		{
-			if(col_count==0)res_lamp->n11 = atoi((*item).c_str());
-			else if (col_count==1) res_lamp->n10 = atoi((*item).c_str());
-			else if (col_count==2) res_lamp->n01 = atoi((*item).c_str());
-			else if (col_count==3) res_lamp->n00 = atoi((*item).c_str());
-			else if (col_count==4) res_lamp->Rank = (*item);
-			else if (col_count==5) res_lamp->Raw_P_value = (*item);
-			else if (col_count==6) res_lamp->Ajusted_P_value = (*item);
-			else if (col_count==7) res_lamp->COMB= (*item);
-			col_count++;
-			item++;
+	LampCore lampCore;
+	std::string set_method;
+	// run LAMP
+	try {
+		std::string log_file;
+		time_t now;
+		std::time(&now);
+		struct tm* d = localtime(&now);
+		int year = d->tm_year + 1900;
+		int month = d->tm_mon + 1;
+		int day = d->tm_mday;
+		int hour = d->tm_hour;
+		int minute = d->tm_min;
+		int second = d->tm_sec;
+		log_file = "lamp_log_";// = "lamp_log_" + d.strftime("%Y%m%d") + "_" + d.strftime("%H%M%S") + ".txt"
+		log_file += std::to_string(year) + std::to_string(month) + std::to_string(day) + "_";
+		log_file += std::to_string(hour) + std::to_string(minute) + std::to_string(second) + ".txt";
+		if (par::fisher_test) {
+			set_method = "fisher";
+		} else if (par::assoc_utest) {
+			set_method = "u_test";
+		} else {
+			set_method = "chi";
 		}
-		if(col_count>6)lamp.push_back(res_lamp) ;
-		ilamp_result++;
+		std::string ifile = par::output_file_name + ".item";
+		std::string vfile = par::output_file_name + ".value";
+		lampCore.run(ifile, vfile, par::SGLEV, set_method, -1, log_file, par::lamp_alternative);
+	} catch (...) {
+		error("Lamp error. Please check inputfile.\n");
+	}
+	
+	// convert results
+	try {
+		int flag_size = lampCore.getN1();
+		int tran_size = lampCore.getTransactionSize();
+		int k = lampCore.getK();
+		int lam_star = lampCore.getLam_star();
+		std::vector<LampCore::enrich_t*> enrich_lst = lampCore.getEnrich_lst();
+		const std::vector<std::string*> columnid2name = lampCore.getColumnid2name();
+		printLOG("-----lamp::info--------\n");
+		printLOG("# LAMP ver. " + LampCore::getVersion() + "\n");
+		printLOG("# item-file: " + par::output_file_name + ".item" + "\n");
+		printLOG("# value-file: " + par::output_file_name + ".value" + "\n");
+		printLOG("# significance-level: " + to_string(par::SGLEV) + "\n"); 
+		printLOG("# P-value computing procedure: " + set_method);
+		if (0 < par::lamp_alternative) {
+			printLOG(" (greater)");
+		}
+		else if (par::lamp_alternative < 0) {
+			printLOG(" (less)");
+		}
+		else {
+			printLOG(" (two.sided)");
+		}
+		printLOG("\n");
+		printLOG("# # of tested elements: " + to_string(columnid2name.size()) + ", # of samples: " + to_string(tran_size) );
+		if (0 < flag_size)
+			printLOG(", # of positive samples: " + flag_size);
+		printLOG("\n");
+		printLOG("# Adjusted significance level: " + (boost::format("%.5g") % (par::SGLEV/k)).str() + ", "); 
+		printLOG("Correction factor: " + to_string(k) + " (# of target rows >= " + to_string(lam_star) + ")\n");
+		printLOG("# # of significant combinations: " + to_string(enrich_lst.size()) + "\n");
 
+		// if (0 < enrich_lst.size() && 0 < flag_size) {
+		if (0 < enrich_lst.size()) {
+			std::sort(enrich_lst.begin(), enrich_lst.end(), LampCore::cmpEnrich);
+			int rank = 0;
+			for (LampCore::enrich_t* l : enrich_lst) {
+				rank = rank + 1;
+				Lamp * res_lamp = new Lamp;
+				int x = flag_size - l->stat_score;
+				int y = l->p - l->len;
+				int z = lampCore.getTransactionSize() - (l->stat_score + x + y);
+				res_lamp->n11 = l->stat_score;
+				res_lamp->n10 = x;
+				res_lamp->n01 = y;
+				res_lamp->n00 = z;
+				res_lamp->Rank = to_string(rank);
+				res_lamp->Raw_P_value = (boost::format("%.5g") % (l->p)).str();
+				res_lamp->Ajusted_P_value = (boost::format("%.5g") % (k * l->p)).str();
+				std::string out_column = "";
+				for (int i : *l->item_set) {
+					out_column += *columnid2name[i-1] + ",";
+				}
+				out_column.erase( --out_column.end() );
+				res_lamp->COMB = out_column;
+				lamp.push_back(res_lamp);
+			}
+		} else {
+			error("No significant SNP combinations were detected.\n");
+		}
+	} catch (...) {
+		error("Lamp error. Please check setting.\n");
 	}
 }
 
@@ -823,7 +871,6 @@ void Plink::readLamplinkfile()
 	string fname= par::combfilename+".lamplink";
 	checkFileExists(fname);
 	printLOG("read_lamplinkfile.........."+fname+"\n");
-	printLOG("lamp-r2: " + dbl2str( par::LAMP_R2 ) + "\n");
 	ifstream fLAMP;
 	fLAMP.open(fname.c_str());
 	fLAMP.clear();

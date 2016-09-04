@@ -67,9 +67,9 @@ int main(int argc, char* argv[])
   
   set_new_handler(NoMem);
 
-  PVERSION = "1.00";        // 4 chars
+  PVERSION = "1.11";        // 4 chars
   PREL = " ";               // space or p (full, or prelease) 
-  PDATE    = "27/Mar/2015"; // 11 chars
+  PDATE    = "18/Aug/2016"; // 11 chars
 
 
   //////////////////
@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 	     "|------------------------------------------------------------------|\n"
 	     "|  This software is modified from PLINK v1.07                      |\n"
 		 "|  (http://pngu.mgh.harvard.edu/purcell/plink/) to implement       |\n"
-         "|  additional options (--lamp and --lamp-ld-removed)               |\n"   
+         "|  additional options (--lamp and --lamp-ld-remoed)                |\n"   
          "|  for the combinatorial detection with LAMP                       |\n"   
          "|  (http://a-terada.github.io/lamp/).                              |\n"
 	     "|  For documentation, citation & bug-report instructions:          |\n"
