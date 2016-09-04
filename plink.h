@@ -294,8 +294,7 @@ class CSNP
  public:
 
   vector<bool> one; // SNP-major mode genotypes
-  vector<bool> two;
-  vector<bool> minor1model;
+  vector<bool> two; 
   
 };
 

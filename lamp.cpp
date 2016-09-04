@@ -78,7 +78,6 @@ void Plink::LampAssocFull(Perm & perm)
 			int2str(par::min_geno_cell) + "\n");
 
 	vector<double> results(nl_all);
-	vector<bool> minor1model(nl_all);
 	//LampAssoc *outputla = new LampAssoc;
 	vector<CSNP*>::iterator s = SNP.begin();
 	int l=0;
@@ -253,16 +252,8 @@ void Plink::LampAssocFull(Perm & perm)
 			mult_p = chiprobP(mult_chisq,1);
 
 		}
-		if(obs_A2 == 0 || obs_U1 == 0) {
-		  minor1model[l] = true;
-		} else if(obs_A1 * obs_U2 / (obs_A2 * obs_U1) >= 0) {
-		  minor1model[l] = true;
-		} else {
-		  minor1model[l] = false;
-		}
 
-		SNP.minor1model = minor1model;
-		
+
 		double gen_p, dom_p, rec_p;
 		gen_p = dom_p = rec_p = -9;
 		double dom_chisq, rec_chisq, gen_chisq;
@@ -511,7 +502,6 @@ void Plink::makeLampInput()
 	string vfname=par::output_file_name + ".value";
 	iASC.open(ifname.c_str(),ios::out);
 	vASC.open(vfname.c_str(),ios::out);
-	vector<bool> minor1model = SNP.minor1model;
 
 	vASC<<"#IID,affection status\n";
 	iASC << "#IID,";
@@ -579,26 +569,19 @@ void Plink::makeLampInput()
 					if ( ! s1 )
 					{
 						if ( ! s2 )
-						{// Homozyg 00
-						        if( minor1model[n] ) {
-							      iASC << "1";
-						        } else
-							      iASC << "0";
+						{// Homozyg 00 
+							iASC << "1"	;
 						}
 						else
 						{// Hetero  01
 							//printf("Hetero\n");
-						        if(par::model_perm_dom) iASC << "1";
-							if(par::model_perm_rec) iASC << "0";
+							if(par::model_perm_dom) iASC << "1";
+							else if(par::model_perm_rec) iASC << "0";
 						}
 					}
-					else if ( s2 ) {     // Homozyg 11
-					        if( minor1model[n] ) {
-							iASC << "0";
-						} else {
-							iASC << "1";
-						}
-					} else
+					else if ( s2 )      // Homozyg 11
+						iASC << "0";
+					else
 						iASC << "0";// missing
 					sep_flag=1;
 					snp_count++;

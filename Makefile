@@ -27,17 +27,25 @@ WITH_WEBCHECK = 1
 FORCE_32BIT = 
 WITH_ZLIB = 1
 WITH_LAPACK = 
-FORCE_DYNAMIC = 1 
+WITH_BOOST = 
+#/usr/local
+#WITH_BOOST = 
+FORCE_DYNAMIC = 
 PARENT_DIR = $(realpath ..)
-LIB_LAMP ="\"$(PARENT_DIR)/lib/lamp\""
-#LIB_LAMP ="\"./lib/lamp\""
 
 # Put C++ compiler here; Windows has it's own specific version
 CXX_UNIX = g++
 CXX_WIN = c:\bin\mingw\bin\mingw32-g++.exe
 
+
+# Put C compiler here; Windows has it's own specific version
+CC_UNIX = gcc
+CC_WIN = c:\bin\mingw\bin\mingw32-gcc.exe
+
+
 # Any other compiler flags here ( -Wall, -g, etc)
 CXXFLAGS = 
+CCFLAGS = 
 
 # Misc
 LIB_LAPACK = /usr/lib/liblapack.so.3
@@ -47,7 +55,8 @@ LIB_LAPACK = /usr/lib/liblapack.so.3
 # Do not edit below this line
 # --------------------------------------------------------------------
 
-CXXFLAGS += -O3 -I.
+CXXFLAGS += -std=c++11 -O3 -I.
+CCFLAGS += -O3 -I.
 OUTPUT = $(realpath ..)/lamplink
 #OUTPUT = lamplink
 
@@ -56,6 +65,7 @@ OUTPUT = $(realpath ..)/lamplink
 ifeq ($(SYS),WIN)
  CXXFLAGS += -DWIN -static
  CXX = $(CXX_WIN)
+ CC = $(CC_WIN)
  ifndef FORCE_DYNAMIC
   CXXFLAGS += -static
  endif
@@ -63,20 +73,31 @@ endif
 
 ifeq ($(SYS),UNIX)
  CXXFLAGS += -DUNIX
- CXXFLAGS += -fPIC
- CXXFLAGS += -I/usr/include/python2.7
- LIB += -lpython2.7
- CXXFLAGS += -L/usr/lib64
- CXXFLAGS += -DLIB_LAMP=$(LIB_LAMP)
+# CXXFLAGS += -fPIC
+# CXXFLAGS += -L/usr/lib64
+ LIB += -lboost_filesystem
+ LIB += -lboost_iostreams
+ LIB += -lboost_system
  CXX = $(CXX_UNIX)
+ CC = $(CC_UNIX)
  ifndef FORCE_DYNAMIC
   CXXFLAGS += -static
  endif
 endif
 
 ifeq ($(SYS),MAC)
- CXXFLAGS += -DUNIX -Dfopen64=fopen
+ CXXFLAGS += -DUNIX -Dfopen64=fopen -I/usr/local/include
+ ifdef WITH_BOOST
+   LIB += $(WITH_BOOST)/lib/libboost_iostreams.a
+   LIB += $(WITH_BOOST)/lib/libboost_filesystem.a
+   LIB += $(WITH_BOOST)/lib/libboost_system.a
+ else
+   LIB += -lboost_filesystem
+   LIB += -lboost_iostreams
+   LIB += -lboost_system
+ endif
  CXX = $(CXX_UNIX)
+ LIB_LAPACK = -framework Accelerate
 endif
 
 ifeq ($(SYS),SOLARIS)
@@ -121,13 +142,23 @@ clumpld.cpp genoerr.cpp em.cpp impute.cpp metaem.cpp profile.cpp	\
 nlist.cpp whap.cpp simul.cpp gvar.cpp cnv.cpp step.cpp greport.cpp	\
 flip.cpp qualscores.cpp cnvqt.cpp cfamily.cpp setscreen.cpp idhelp.cpp	\
 tag.cpp hapglm.cpp lookup2.cpp blox.cpp zed.cpp dosage.cpp annot.cpp	\
-metaanal.cpp lamp.cpp
+metaanal.cpp lamp.cpp	\
+ReadFile.cpp Transaction.cpp LampCore.cpp	\
+frepattern/Node.cpp frepattern/LCM.cpp	\
+functions/Functions4chi.cpp functions/Functions4fisher.cpp	\
+functions/Functions4u_test.cpp functions/FunctionsSuper.cpp	\
+functions/PvalTable.cpp lcm53/LCMWrap.c
 
 
 HDR = plink.h options.h helper.h stats.h crandom.h sets.h phase.h	\
 perm.h model.h linear.h logistic.h dcdflib.h ipmpar.h cdflib.h		\
 fisher.h sockets.h haplowindow.h genogroup.h clumpld.h nlist.h whap.h	\
-gvar.h cnv.h cfamily.h idhelp.h zed.h lamp.h
+gvar.h cnv.h cfamily.h idhelp.h zed.h lamp.h	\
+ReadFile.h Transaction.h LampCore.h	\
+frepattern/Node.h frepattern/LCM.h	\
+functions/Functions4chi.h functions/Functions4fisher.h	\
+functions/Functions4u_test.h functions/FunctionsSuper.h	\
+functions/PvalTable.h lcm53/LCMWrap.h
 
 ifdef WITH_R_PLUGINS
 CXXFLAGS += -DWITH_R_PLUGINS
@@ -155,7 +186,13 @@ SRC += lapackf.cpp
 LIB += $(LIB_LAPACK) 
 endif
 
-OBJ = $(SRC:.cpp=.o)
+ifdef WITH_BOOST
+CXXFLAGS += -I$(WITH_BOOST)/include
+LIB += -L$(WITH_BOOST)/lib 
+endif
+
+OBJ1 = $(SRC:.cpp=.o)
+OBJ = $(OBJ1:.c=.o)
 
 all : $(OUTPUT) 
 
@@ -165,7 +202,11 @@ $(OUTPUT) :
 $(OBJ) : $(HDR)
 
 .cpp.o : 
-	$(CXX) $(CXXFLAGS) -c $*.cpp
+	$(CXX) $(CXXFLAGS) -c $*.cpp -o $*.o
+
+.c.o : 
+	$(CC) $(CFLAGS) -c $*.c -o $*.o
+
 .SUFFIXES : .cpp .c .o $(SUFFIXES)
 
 $(OUTPUT) : $(OBJ)
@@ -173,5 +214,5 @@ $(OUTPUT) : $(OBJ)
 FORCE:
 
 clean:
-	rm -f *.o *~
+	rm -f *.o */*.o *~
 	rm $(OUTPUT)
