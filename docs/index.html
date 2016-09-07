@@ -26,6 +26,7 @@
 						<li><a href="#demonstration">Demonstration</a></li>
 						<li><a href="#usage">Usage</a></li>
 						<li><a href="#faq">FAQ</a></li>
+						<li><a href="#compile">Compile</a></li>
 						<li><a href="#contact">Contact</a></li>
 					</ul>
 				</nav>
@@ -57,18 +58,19 @@ You can apply LAMPLINK to an analysis pipeline with PLINK simply by replacing <c
 
 <h1 id="installation">Installation</h1>
 
-<p>LAMPLINK currently works with C++ and Python 2.7 on Linux.
-If installation fails, please check the <a href="#faq">FAQ</a> section or contact <a href="#contact">us</a>.</p>
+<p>Linux binary of LAMPLINK and its C++ source code are available. 
+  <ul>
+    <li><a href="">Linux binary</a> (v1.11)</li>
+    <li><a href="https://github.com/a-terada/lamplink">Source code on GitHub</a></li>
+  </ul>
+</p>
+<p>
+  The LAMPLINK binary should be placed in the current working directory or the directory in your command path. Then, typing <code>lamplink</code> or <code>./lamplink</code> will run LAMPLINK.
 
-<p>LAMPLINK is available from <a href="https://github.com/a-terada/lamplink/archive/master.zip">lamplink.zip</a>.
-After download the zip file, LAMPLINK is installed in <code>lamplink/</code> using the following command.</p>
-
-<pre><code>$ ./install.sh
-</code></pre>
 
 <h1 id="demonstration">Demonstration</h1>
 
-<p>We show an example of LAMPLINK using a sample GWAS dataset in example/.</p>
+<p>We show an example of LAMPLINK using a sample GWAS dataset in <a href="https://github.com/a-terada/lamplink/tree/master/example">example/</a>.</p>
 
 <ul>
   <li>lamplink_sample.map: Annotation file for each SNP locus</li>
@@ -394,23 +396,25 @@ $ ./lamplink --file ./example/lamplink_sample --comb example2 --lamp-ld-remove -
 </code></pre>
 
 <h1 id="faq">FAQ</h1>
+<dl>
+  <dt>Q. LAMPLINK is still running after a few days.</dt>
+  <dd>A. Please set --upper to smaller value and/or test --model-rec. </dd>
+</dl>
 
-<ul>
-  <li>If the install process fails because of Python header problem, please check the following points.
-    <ul>
-      <li>The installer assumes:
-        <ul>
-          <li>Python headers are installed in <code>/usr/include/python2.7</code></li>
-          <li>Python libraries are installed in <code>/usr/lib64</code></li>
-        </ul>
-      </li>
-      <li>When Python is installed in different directories, please change lines 67 to 69 in src/Makefile in the installed directory as shown in the following example:</li>
-    </ul>
-  </li>
-</ul>
-<pre><code>CXXFLAGS += -I$HOME/anaconda/include/python2.7
-LIB += -lpython2.7
-CXXFLAGS += -L$HOME/anaconda/lib
+<dl>
+  <dt>Q. Can I run LAMPLINK on Mac or Windows.</dt>
+  <dd>A. Yes, and we have a plan to distribute Mac and Windows binary. Wait a sec!</dd>
+</dl>
+
+
+<h1 id="compile">Compile</h1>
+
+<p>LAMPLINK source code is available from <a href="https://github.com/a-terada/lamplink">Github</a>.
+LAMPLINK can be compiled using the following command. C++ and Boostlibrary should be installed in advance.</p>
+
+<pre><code>$ git clone https://github.com/a-terada/lamplink.git
+$ cd lamplink
+$ ./install.sh
 </code></pre>
 
 <h1 id="license">License</h1>
@@ -433,6 +437,10 @@ Please see <a href="https://www.gnu.org/licenses/gpl-2.0.html">GNU General Publi
 <h1 id="reference">Reference</h1>
 
 <ul>
+  <li>LAMPLINK
+    <ul>
+      <li>Terada, A., Yamada, R. , Tsuda, K., &amp; Sese, J. (2016). <a href="http://bioinformatics.oxfordjournals.org/content/early/2016/07/20/bioinformatics.btw418.abstract">LAMPLINK: detection of statistically significant SNP combinations from GWAS data</a>. Bioinformatics, <i>in press</i>.</li>
+    </ul>
   <li>LAMP
     <ul>
       <li>Terada, A., Okada-Hatakeyama, M., Tsuda, K., &amp; Sese, J. (2013). <a href="http://www.pnas.org/content/110/32/12996.abstract">Statistical significance of combinatorial regulations</a>. Proc. Natl. Acad. Sci. USA, 110(32), 12996–13001.</li>
