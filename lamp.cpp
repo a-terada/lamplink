@@ -693,7 +693,7 @@ void Plink::DoLamp()
 				lamp.push_back(res_lamp);
 			}
 		} else {
-			error("No significant SNP combinations were detected.\n");
+		  printLOG("No significant SNP combinations were detected.\n");
 		}
 	} catch (...) {
 		error("Lamp error. Please check setting.\n");
