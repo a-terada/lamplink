@@ -5,7 +5,7 @@
 #LAMPDIR="lamp"
 #LAMPFILE="lamp-${LAMPVER}.tar.gz"
 
-PLINKURL="http://pngu.mgh.harvard.edu/~purcell/plink/dist/plink-1.07-src.zip"
+PLINKURL="http://zzz.bwh.harvard.edu/plink/dist/plink-1.07-src.zip"
 PLINKDIR="src"
 PLINKFILE="plink-1.07-src.zip"
 
