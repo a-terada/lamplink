@@ -47,20 +47,20 @@
 class Functions4u_test : public FunctionsSuper {
 public:
 	Functions4u_test(const std::vector<Transaction*>& transaction_list, int alternative);
+	Functions4u_test(int transaction_size, int n1_count, int alternative);
 	virtual ~Functions4u_test();
 	
 	double funcF(int x) override;
-	double calPValue(std::vector<int>& flag_transactions_id, double& score) override;
+	double calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) override;
+	double calPValue(const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y, double& score, double& statistic);
 
 private:
-	void __divideGroup(std::vector<int>& frequent_itemset,
-			std::vector<Transaction*>& in_t_list, std::vector<Transaction*>& out_t_list);
-	double __uTest(std::vector<Transaction*>& tgroup_x, std::vector<Transaction*>& tgroup_y, double& z_value);
-	double __uValue(std::vector<Transaction*>& tgroup_x, std::vector<Transaction*>& tgroup_y);
-	void __binarySearch(double threshold, std::vector<Transaction*>& tgroup,
+	void __divideGroup(const std::vector<int>& frequent_itemset,
+			std::vector<double>& in_t_list, std::vector<double>& out_t_list);
+	double __uTest(const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y, double& z_value, double& u_value);
+	double __uValue(const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y);
+	void __binarySearch(double threshold, const std::vector<double>& tgroup,
 		int left_index, int right_index, int& u_x_min, int& u_x_max);
-	
-	int calTime; /**< Total number of calculate P-value */
 };
 
 #endif /* FUNCTIONS4U_TEST_H */

@@ -4397,9 +4397,14 @@ void setOptions(CArgs & a)
 
   /////////////////////////////////////////////
   // LAMPLINK -- lamp options
-  if ( a.find("--lamp"))
+  if (a.find("--lamp") || a.find("--fastwy"))
    {
-    par::lamp=true;
+    par::lamp=a.find("--lamp");
+    par::fastwy=a.find("--fastwy");
+	if (par::lamp && par::fastwy) {
+		error("Cannot --lamp at same time as --fastwy");
+	}
+	par::lamp = true;
     if (a.find("--utest")) {
       par::assoc_test = par::assoc_utest = true;
       par::min_geno_cell = 0;
@@ -4414,6 +4419,17 @@ void setOptions(CArgs & a)
      par::MAF_UPPER=0.15;
     if ( ! a.find("--model-dom") && ! a.find("--model-rec"))
      error("Must specify --model-dom or --model-rec also if --lamp used");
+	if (par::fastwy) {
+		if (a.find("--nperm")) {
+			par::fastwy_nperm = a.value_int("--nperm");
+		} else {
+			error("Must specify --nperm N also if --fastwy used");
+		}
+	}
+	if (par::permute)
+		error("Cannot specify --lamp and --fastwy with other permutation options");
+	par::adaptive_perm = false;
+	par::lamp_allele_test = a.find("--lamp-allele-test");
    }
 
   if ( a.find("--sglev")){

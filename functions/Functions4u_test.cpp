@@ -45,9 +45,20 @@
 Functions4u_test::Functions4u_test(const std::vector<Transaction*>& transaction_list, int alternative) :
 		FunctionsSuper(transaction_list, alternative)
 {
-	__t_size = transaction_list.size(); // all transaction size
+	__t_size = (int)transaction_list.size(); // all transaction size
 	this->alternative = alternative; // alternative hypothesis. greater -> 1, less -> -1, two.sided -> 0.
 	calTime = 0; // Total number of calculate P-value
+}
+
+/**
+ * Constructor
+ * @param transaction_size all transaction size
+ * @param n1_count transaction size which have flag = 1 (n1)
+ * @param alternative hypothesis, 1 -> greater, 0 -> two sided, -1 -> less
+ */
+Functions4u_test::Functions4u_test(int transaction_size, int n1_count, int alternative) :
+		FunctionsSuper(transaction_size, n1_count, alternative)
+{
 }
 
 /**
@@ -82,16 +93,30 @@ double Functions4u_test::funcF(int x) {
 }
 
 /**
- * calculate p-value by t test.
+ * calculate p-value by u test.
  * @param flag_transactions_id return value
  * @param score return value
+ * @param statistic return value
  * @return 
  */
-double Functions4u_test::calPValue(std::vector<int>& flag_transactions_id, double& score) {
-	std::vector<Transaction*> in_t_list, out_t_list;
+double Functions4u_test::calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) {
+	std::vector<double> in_t_list, out_t_list;
 	__divideGroup(flag_transactions_id, in_t_list, out_t_list); // dvide transactions to itemset or not.
+	return calPValue(in_t_list, out_t_list, score, statistic);
+}
+
+/**
+ * calculate p-value by u test.
+ * @param tgroup_x test group 1. This is consisted of transaction values.
+ * @param tgroup_y test group 2. This is consisted of transaction values.
+ * @param z_value return value
+ * @param statistic return value
+ * @return
+ */
+double
+Functions4u_test::calPValue(const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y, double& score, double& statistic) {
 	double z_value;
-	double p_value = __uTest(in_t_list, out_t_list, z_value);
+	double p_value = __uTest(tgroup_x, tgroup_y, z_value, statistic);
 	if (alternative == 0) {
 		p_value = std::min( p_value * 2., 1.0 );
 	}
@@ -99,9 +124,9 @@ double Functions4u_test::calPValue(std::vector<int>& flag_transactions_id, doubl
 		if (z_value < 0)
 			p_value = 1. - p_value;
 		if (alternative < 0)
-			z_value = -z_value;
-		calTime = calTime + 1;
+			p_value = 1. - p_value;
 	}
+	calTime = calTime + 1;
 	score = z_value;
 	return p_value;
 }
@@ -113,28 +138,29 @@ double Functions4u_test::calPValue(std::vector<int>& flag_transactions_id, doubl
  * @param in_t_list return value
  * @param out_t_list return value
  */
-void Functions4u_test::__divideGroup(std::vector<int>& frequent_itemset,
-		std::vector<Transaction*>& in_t_list, std::vector<Transaction*>& out_t_list) {
+void Functions4u_test::__divideGroup(const std::vector<int>& frequent_itemset,
+		std::vector<double>& in_t_list, std::vector<double>& out_t_list) {
 	// If itemset of t contains test itemset, t puts in_t_list.
 	// Else, t puts out_t_list
-	for (int i = 0; i < (int)transaction_list.size(); i++) {
-		Transaction* t = transaction_list[i];
+	for (int i = 0; i < (int)transaction_list->size(); i++) {
+		Transaction* t = (*transaction_list)[i];
 		if (std::find( frequent_itemset.begin(), frequent_itemset.end() , i ) != frequent_itemset.end())
-			in_t_list.push_back(t);
+			in_t_list.push_back(t->getValue());
 		else
-			out_t_list.push_back(t);
+			out_t_list.push_back(t->getValue());
 	}
 }
 
 /**
  * Calculate p-value by using Mann-Whitney U test
- * @param tgroup_x test group 1. This is consisted of transactions.
- * @param tgroup_y test group 2. This is consisted of transactions.
+ * @param tgroup_x test group 1. This is consisted of transaction values.
+ * @param tgroup_y test group 2. This is consisted of transaction values.
  * @param z_value return value
- * @return 
+ * @param u_value return value
+ * @return
  */
-double Functions4u_test::__uTest(std::vector<Transaction*>& tgroup_x, std::vector<Transaction*>& tgroup_y, double& z_value) {
-	double u_value = __uValue(tgroup_x, tgroup_y); // u-value of two groups.
+double Functions4u_test::__uTest(const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y, double& z_value, double& u_value) {
+	u_value = __uValue(tgroup_x, tgroup_y); // u-value of two groups.
 	// z value of u-value
 	//mean_u, var_u = __calStatValue(tgroup_x, tgroup_y);
 	double size_x = tgroup_x.size();
@@ -154,38 +180,38 @@ double Functions4u_test::__uTest(std::vector<Transaction*>& tgroup_x, std::vecto
 
 /**
  * Calculate u value which measurs difference rank sum of two groups.
- * @param tgroup_x test group 1. This is consisted of transactions.
- * @param tgroup_y test group 2. This is consisted of transactions.
+ * @param tgroup_x test group 1. This is consisted of transaction values.
+ * @param tgroup_y test group 2. This is consisted of transaction values.
  * tgroup_x and t_group_y already sorted by transaction value.
  * @return 
  */
-double Functions4u_test::__uValue(std::vector<Transaction*>& tgroup_x, std::vector<Transaction*>& tgroup_y) {
+double Functions4u_test::__uValue(const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y) {
 	double u_value = 0.0;
 	int previous_u_x_min = 0; // The rank of transaction in previous search
 	int previous_u_x_max = 0; // The rank of transaction in previous search
 	double previous_value = std::numeric_limits<double>::quiet_NaN(); // The previous expression value
 	int left_index = 0; // The start point of searching value.
-	int right_index = tgroup_y.size() - 1; // The end point of searching value.
-	for (Transaction* t_x : tgroup_x) {
+	int right_index = (int)tgroup_y.size() - 1; // The end point of searching value.
+	for (double t_x : tgroup_x) {
 		// u_x_min: rank sum of transaction which the value < t_x in tgroup_y
 		// u_x_max: rank sum of transaction which the value <= t_x in tgroup_y
 		int u_x_min = std::numeric_limits<int>::quiet_NaN();
 		int u_x_max = std::numeric_limits<int>::quiet_NaN();
 		// If t_x.value is equal to previous one, u_x_min and u_x_max are also equals.
-		if (t_x->getValue() == previous_value) {
+		if (t_x == previous_value) {
 			u_x_min = previous_u_x_min;
 			u_x_max = previous_u_x_max;
 		}
 		// Caluclate u_value because tgroup_x value exists between tgroup_y range
 		else {
-			__binarySearch(t_x->getValue(), tgroup_y, left_index, right_index, u_x_min, u_x_max);
+			__binarySearch(t_x, tgroup_y, left_index, right_index, u_x_min, u_x_max);
 			left_index = u_x_max;
 		}
 		// Add rank of t_x to u_value
 		u_value = u_value + ((double)u_x_min + (double)u_x_max) / 2.0;
 		previous_u_x_min = u_x_min;
 		previous_u_x_max = u_x_max;
-		previous_value = t_x->getValue();
+		previous_value = t_x;
 	}
 	return u_value;
 }
@@ -199,23 +225,23 @@ double Functions4u_test::__uValue(std::vector<Transaction*>& tgroup_x, std::vect
  * @param u_x_min return value
  * @param u_x_max return value
  */
-void Functions4u_test::__binarySearch(double threshold, std::vector<Transaction*>& tgroup,
+void Functions4u_test::__binarySearch(double threshold, const std::vector<double>& tgroup,
 		int left_index, int right_index, int& u_x_min, int& u_x_max) {
 	if ((int)tgroup.size() <= left_index) {
-		u_x_min = tgroup.size();
-		u_x_max = tgroup.size();
+		u_x_min = (int)tgroup.size();
+		u_x_max = (int)tgroup.size();
 		return;
 	}
 		
 	// compare threshold to min and max value
-	if (threshold < tgroup[left_index]->getValue()) {
+	if (threshold < tgroup[left_index]) {
 		u_x_min = left_index;
 		u_x_max = left_index;
 		return;
 	}
-	if (tgroup[right_index]->getValue() < threshold) {
-		u_x_min = right_index;
-		u_x_max = right_index;
+	if (tgroup[right_index] < threshold) {
+		u_x_min = right_index + 1;
+		u_x_max = right_index + 1;
 		return;
 	}
 		
@@ -223,13 +249,13 @@ void Functions4u_test::__binarySearch(double threshold, std::vector<Transaction*
 	int mid_index = -1;
 	while (left_index <= right_index) {
 		mid_index = (left_index + right_index) / 2;
-		Transaction* mid_transaction = tgroup[mid_index];
+		double mid_transaction = tgroup[mid_index];
 
 		// When the mid.value = threshold, finish the search.
-		if (mid_transaction->getValue() == threshold)
+		if (mid_transaction == threshold)
 			break;
 		// When the check value less than threshod, go to serach right.
-		else if (mid_transaction->getValue() < threshold)
+		else if (mid_transaction < threshold)
 			left_index = mid_index + 1;
 		// When the check value >= threshold, go to search left.
 		else
@@ -237,19 +263,19 @@ void Functions4u_test::__binarySearch(double threshold, std::vector<Transaction*
 	}
 	
 	// search the same range of the threshold
-	Transaction* mid_transaction = tgroup[mid_index];
-	if (mid_transaction->getValue() == threshold) {
+	double mid_transaction = tgroup[mid_index];
+	if (mid_transaction == threshold) {
 		int min_index = mid_index;
 		int max_index = mid_index;
-		Transaction* min_transaction = tgroup[min_index];
-		Transaction* max_transaction = tgroup[max_index];
-		while (threshold <= min_transaction->getValue()) {
+		double min_transaction = tgroup[min_index];
+		double max_transaction = tgroup[max_index];
+		while (threshold <= min_transaction) {
 			min_index = min_index - 1;
 			if (min_index < 0)
 				break;
 			min_transaction = tgroup[min_index];
 		}
-		while (max_transaction->getValue() <= threshold) {				
+		while (max_transaction <= threshold) {
 			max_index = max_index + 1;
 			if ((int)tgroup.size() <= max_index)
 				break;
@@ -260,8 +286,8 @@ void Functions4u_test::__binarySearch(double threshold, std::vector<Transaction*
 	}
 	// not found the threshold in tgroup.
 	// in this case, min_index > max_index
-	else if (mid_transaction->getValue() < threshold) {
-		while (mid_transaction->getValue() < threshold) {
+	else if (mid_transaction < threshold) {
+		while (mid_transaction < threshold) {
 			mid_index = mid_index + 1;
 			mid_transaction = tgroup[mid_index];
 		}
@@ -271,7 +297,7 @@ void Functions4u_test::__binarySearch(double threshold, std::vector<Transaction*
 	// not found the threshod in tgroup and the case of mid_transaction value > threshold
 	// In this case, min_index > max_index
 	else {
-		while (threshold < mid_transaction->getValue()) {
+		while (threshold < mid_transaction) {
 			mid_index = mid_index - 1;
 			mid_transaction = tgroup[mid_index];
 		}

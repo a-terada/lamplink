@@ -75,6 +75,7 @@ You can apply LAMPLINK to an analysis pipeline with PLINK simply by replacing <c
 <ul>
   <li>lamplink_sample.map: Annotation file for each SNP locus</li>
   <li>lamplink_sample.ped: Sample information file such as phenotype and genotype</li>
+  <li>phenotype_sample.txt: An example file for quantitative trait</li>
 </ul>
 
 <p>The following command finds all of the significant combinations with Fisher’s exact test. 
@@ -108,6 +109,11 @@ Column P shows the P-value of the SNP.
 If the value in COMB1 is 1, the SNP is a member of COMB1 in example.lamp.</p>
 
 <p>The output file formats are described in <a href="#output-file-format">Output file format</a>.</p>
+
+<p>For the quantitive trait, Mann-Whitney U test can be used by the following command.</p>
+
+<pre><code>$ ./lamplink --file ./example/lamplink_sample --pheno ./example/phenotype_sample.txt --lamp --model-dom --sglev 0.05 --upper 0.5 --out example_utest --utest --alternative "greater"
+</code></pre>
 
 <h1 id="usage">Usage</h1>
 
@@ -150,6 +156,13 @@ If the value in COMB1 is 1, the SNP is a member of COMB1 in example.lamp.</p>
     <tr>
       <td style="text-align: left">--fisher</td>
       <td style="text-align: left">Use Fisher’s exact test as the statistical significance test (default is Chi-square test)</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">--utest</td>
+      <td style="text-align: left">Use Mann-Whitney U test as the statistical significance test (default is Chi-square test)</td>
+    <tr>
+      <td style="text-align: left">--alternative</td>
+      <td style="text-align: left">Select which alternative hypothesis is used from "greater", "less" or "two.sided" (default is two.sided)</td>
     </tr>
     <tr>
       <td style="text-align: left">--ci &lt;value&gt;</td>
@@ -439,7 +452,7 @@ Please see <a href="https://www.gnu.org/licenses/gpl-2.0.html">GNU General Publi
 <ul>
   <li>LAMPLINK
     <ul>
-      <li>Terada, A., Yamada, R. , Tsuda, K., &amp; Sese, J. (2016). <a href="http://bioinformatics.oxfordjournals.org/content/early/2016/07/20/bioinformatics.btw418.abstract">LAMPLINK: detection of statistically significant SNP combinations from GWAS data</a>. Bioinformatics, <i>in press</i>.</li>
+      <li>Terada, A., Yamada, R. , Tsuda, K., &amp; Sese, J. (2016). <a href="http://bioinformatics.oxfordjournals.org/content/early/2016/07/20/bioinformatics.btw418.abstract">LAMPLINK: detection of statistically significant SNP combinations from GWAS data</a>. Bioinformatics, 32(22): 3513-3515.</li>
     </ul>
   <li>LAMP
     <ul>

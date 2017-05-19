@@ -1,11 +1,11 @@
 
 //////////////////////////////////////////////////////////////////
 //                                                              //
-//          LAMPLINK (c) 2015 LAMP development team             //
+//          LAMPLINK (c) 2015-2017 LAMP development team        //
 //                                                              //
 // This code is written to add options                          //
 // (--lamp and --lamp-ld-removed) to PLINK v1.07                //
-// (http://pngu.mgh.harvard.edu/~purcell/plink/)                //
+// (http://zzz.bwh.harvard.edu/plink/)                          //
 // for the combinatorial detection with LAMP                    //
 // (http://a-terada.github.io/lamp/).                           //
 //                                                              //
@@ -26,10 +26,12 @@
 #include <cmath>
 #include <map>
 #include <vector>
+#include <memory>
 #include <cassert>
 #include <boost/format.hpp>
 
 #include "plink.h"
+#include "options.h"
 #include "fisher.h"
 #include "stats.h"
 #include "helper.h"
@@ -47,7 +49,7 @@ extern ofstream LOG;
 #include "haplowindow.h"
 #include "lamp.h"
 #include "LampCore.h"
-
+#include "FastWYCore.h"
 
 vector<string> split(string &str, char delim){
 	vector<string> res;
@@ -74,421 +76,206 @@ string Replace( string String1, string String2, string String3 )
 void Plink::LampAssocFull(Perm & perm)
 {
 	printf("Plink::LampAssocFull\n");
-	printLOG("Full-model association for Lamp tests, minimum genotype count: --cell " +
-			int2str(par::min_geno_cell) + "\n");
+	printLOG("Full-model association for Lamp tests\n");
 
-	vector<double> results(nl_all);
-	//LampAssoc *outputla = new LampAssoc;
-	vector<CSNP*>::iterator s = SNP.begin();
-	int l=0;
-	while ( s != SNP.end() )
-	{ 
-		//printf("test:%d\n",l);
-		// In adaptive mode, possibly skip this test
-		if (par::adaptive_perm && (!perm.snp_test[l]))
-		{
-			printf("In adaptive mode, possibly skip this test\n");
-			s++;
-			l++;
-			continue;
+	lampassoc.clear();
+
+	int	transaction_size = 0;
+	int	n1_count = 0;
+	for (const auto gperson : sample) {
+		const Individual*	pperson = gperson->pperson;
+		if (!pperson->missing) {
+			if (pperson->aff) {
+				++n1_count;
+			}
+			++transaction_size;
 		}
+	}
+	if (par::lamp_alternative < 0) {	//less
+		n1_count = transaction_size - n1_count;
+	}
 
-		int A11=0, A12=0, A22=0;
-		int U11=0, U12=0, U22=0;
+	std::unique_ptr<FunctionsSuper>	tFunc;
+	if (par::assoc_utest) {
+		tFunc.reset(new Functions4u_test(transaction_size, n1_count, par::lamp_alternative));
+	} else if (par::fisher_test) {
+		tFunc.reset(new Functions4fisher(transaction_size, n1_count, std::abs(par::lamp_alternative)));
+	} else {
+		tFunc.reset(new Functions4chi(transaction_size, n1_count, std::abs(par::lamp_alternative)));
+	}
 
-		/////////////////////////
-		//printf("Autosomal or haploid?\n");
-		bool X=false, haploid=false;
-		if (par::chr_sex[locus[l]->chr]) X=true;
-		else if (par::chr_haploid[locus[l]->chr]) haploid=true;
-
-		//printf("Skip haploid markers\n");
-		if (haploid)
-		{
-			s++;
-			l++;
-			continue;
+	auto newLampAccoc = [](const vector<Locus*>& locus, int l) {
+		LampAssoc *outputla = new LampAssoc;
+		outputla->chr = locus[l]->chr;
+		outputla->snpname = locus[l]->name;
+		outputla->allele1 = locus[l]->allele1;
+		outputla->allele2 = locus[l]->allele2;
+		if (par::model_perm_dom) {
+			outputla->test="DOM";
+		} else {
+			outputla->test="REC";
 		}
-		/////////////////////////////
-		// Iterate over individuals
-		vector<bool>::iterator i1 = (*s)->one.begin();
-		vector<bool>::iterator i2 = (*s)->two.begin();
-		vector<Individual*>::iterator gperson = sample.begin();
+		return outputla;
+	};
 
-		while ( gperson != sample.end() )
-		{
-			//printf("person!\n");
-			// Phenotype for this person (i.e. might be permuted)
-			Individual * pperson = (*gperson)->pperson;
-			// SNP alleles
-			bool s1 = *i1;
-			bool s2 = *i2;
-			//////////////////////////////////////////////////////////////////////////////////
-			if ( ! pperson->missing  ) // if the phenotype is not missing value
-			{
-				//printf("%d,%d ",s1,s2);
-				// Only consider diploid chromosomes
-				if ( ! ( X && (*gperson)->sex ) )
-				{
-					//printf("%d,%d ",s1,s2);
-					if ( pperson->aff )     // cases
-					{
-					  //printf("a,%d,%d \n",s1,s2);
-						if ( ! s1 )
-						{
-							if ( ! s2 )     // Homozyg 00
-								A11++;
-							else            // Hetero  01
-								A12++;
+	bool	reverseValueB = par::lamp_alternative < 0;
+	double	pvalue, score, stat_value;
+	int		l = 0;
+	for (const auto s : SNP) {
+		auto	i1 = s->one.begin();
+		auto	i2 = s->two.begin();
+		
+		LampAssoc *outputla = newLampAccoc(locus, l);
+		if (par::assoc_utest) {
+			std::vector<double>	group_x;
+			std::vector<double>	group_y;
+			for (const auto gperson : sample) {
+				bool	s1 = *i1++;
+				bool	s2 = *i2++;
+				const Individual*	pperson = gperson->pperson;
+				if (!pperson->missing) {
+					bool	s;
+					if (!s1) {
+						if (!s2) {		// Homozyg 00
+							s = true;
+						} else {		// Hetero  01
+							if (par::model_perm_dom) {
+								s = true;
+							} else { // par::model_perm_rec
+								s = false;
+							}
 						}
-						else                // Homozyg 11 or missing genotype
-						  A22++;
-						/*
-						else if ( s2 )      // Homozyg 11
-							A22++;
-						*/
+					} else if (s2) {	// Homozyg 11
+						s = false;
+					} else {			// missing
+						s = false;
 					}
-					else
-					{
-					  //printf("u,%d,%d ",s1,s2);
-						if ( !s1 )
-						{
-						  if ( !s2 )       // Homozyg 00
-							U11++;
-						  else             // Hetero  01
-								U12++;
+					if (s) {
+						group_x.push_back(pperson->phenotype);
+					} else {
+						group_y.push_back(pperson->phenotype);
+					}
+				}
+			}
+			std::sort(group_x.begin(), group_x.end());
+			std::sort(group_y.begin(), group_y.end());
+			pvalue = static_cast<Functions4u_test*>(tFunc.get())->calPValue(group_x, group_y, score, stat_value);
+			outputla->U = dbl2str(stat_value);
+			outputla->P = dbl2str(pvalue);
+			lampassoc.push_back(outputla);
+		} else {
+			auto	calcOddsFunc = [](double ovalues[2][2], bool reverse, double& ciL, double& ciU) {
+						double	odds;
+						ciL = std::numeric_limits<double>::quiet_NaN();
+						ciU = std::numeric_limits<double>::quiet_NaN();
+						if (reverse) {
+							odds = ovalues[0][1] / ovalues[0][0] *
+									ovalues[1][0] / ovalues[1][1];
+						} else {
+							odds = ovalues[0][0] / ovalues[0][1] *
+									ovalues[1][1] / ovalues[1][0];
 						}
-						else                // Homozyg 11 or missing genotype
-						  U22++;
-						/*
-						else if ( s2 )      // Homozyg 11
-							U22++;
-						*/
+						if (ovalues[0][0] != 0 && ovalues[1][1] != 0 &&
+							ovalues[0][1] != 0 && ovalues[1][0] != 0) {
+							double	lOR = std::log(odds);
+							double	SE = std::sqrt(1 / ovalues[0][0] +
+													1 / ovalues[0][1] +
+													1 / ovalues[1][0] +
+													1 / ovalues[1][1]);
+							ciL = std::exp(lOR - par::ci_zt * SE);
+							ciU = std::exp(lOR + par::ci_zt * SE);
+						}
+						return odds;
+					};
+
+			double	ovalues[2][2] = {{0, 0}, {0, 0}};
+			double	ovalues_r[2][2] = {{0, 0}, {0, 0}};
+			for (const auto gperson : sample) {
+				bool	s1 = *i1++;
+				bool	s2 = *i2++;
+				const Individual*	pperson = gperson->pperson;
+				if (!pperson->missing) {
+					int	s, s_r;
+					if (!s1) {
+						if (!s2) {		// Homozyg 00
+							s = 0;
+							s_r = 1;
+						} else {		// Hetero  01
+							if (par::model_perm_dom) {
+								s = s_r = 0;
+							} else { // par::model_perm_rec
+								s = s_r = 1;
+							}
+						}
+					} else if (s2) {	// Homozyg 11
+						s = 1;
+						s_r = 0;
+					} else {			// missing
+						s = s_r = 1;
 					}
-
-
+					if (pperson->aff == !reverseValueB) {
+						ovalues  [s  ][0] += 1;
+						ovalues_r[s_r][0] += 1;
+					} else {
+						ovalues  [s  ][1] += 1;
+						ovalues_r[s_r][1] += 1;
+					}
 				}
 			}
-			// Next individual
-			gperson++;
-			i1++;
-			i2++;
 
-		}
-		//	printf("\n");
-		//////////////////////////////////////////////////////////////////////////////
+			double	ciL, ciU;
+			double	odds, odds_r;
 
-		///////////////////////////////////
-		// Calculate association statistics
-
-		double obs_A = A11 + A12 + A22;
-		double obs_U = U11 + U12 + U22;
-		double obs_T = obs_A + obs_U;
-
-		double obs_1 = 2*(A11+U11) + A12 + U12;
-		double obs_2 = 2*(A22+U22) + A12 + U12;
-
-		double obs_11 = A11+U11;
-		double obs_12 = A12+U12;
-		double obs_22 = A22+U22;
-
-		bool invalid = false;
-		if (A11 < par::min_geno_cell ||
-				A12 < par::min_geno_cell ||
-				A22 < par::min_geno_cell) invalid = true;
-		else if (U11 < par::min_geno_cell ||
-				U12 < par::min_geno_cell ||
-				U22 < par::min_geno_cell) invalid = true;
-
-
-		if ( par::trend_only )
-			invalid = true;
-		///////////////////////
-		// Cochram-Armitage Trend test
-		double CA = ( ( obs_U / obs_T * A12 ) - ( obs_A / obs_T * U12 ) )
-			+ 2*( ( obs_U / obs_T * A22 ) - ( obs_A / obs_T * U22 ) ) ;
-
-		double varCA = obs_A * obs_U
-			* ( ( obs_T * ( obs_12 + 4*obs_22 )
-						- ( obs_12+2*obs_22 ) * ( obs_12+2*obs_22 )  )
-					/ (obs_T * obs_T * obs_T  )) ;
-		double CA_chisq = (CA*CA) / varCA;
-		double CA_p = chiprobP(CA_chisq,1);
-		double mult_p, mult_chisq;
-
-		///////////////////////
-		// Multiplicative model
-		double obs_A1 = 2*A11 + A12;
-		double obs_A2 = 2*A22 + A12;
-		double obs_U1 = 2*U11 + U12;
-		double obs_U2 = 2*U22 + U12;
-
-		if ( par::fisher_test )
-		{
-			table_t t;
-			sizeTable(t,2,2);
-			t[0][0] = (int)obs_A1;
-			t[1][0] = (int)obs_A2;
-			t[0][1] = (int)obs_U1;
-			t[1][1] = (int)obs_U2;
-			mult_p = fisher(t);
-
-		}
-		else
-		{
-
-			double exp_A1 = (obs_A * obs_1 ) / obs_T;    // note 2's cancelled for obs_A and obs_T
-			double exp_A2 = (obs_A * obs_2 ) / obs_T;    // which are counts of individuals, not
-			double exp_U1 = (obs_U * obs_1 ) / obs_T;    // alleles
-			double exp_U2 = (obs_U * obs_2 ) / obs_T;
-
-			mult_chisq =  ( ( obs_A1 - exp_A1 ) * ( obs_A1 - exp_A1 ) ) / exp_A1
-				+ ( ( obs_A2 - exp_A2 ) * ( obs_A2 - exp_A2 ) ) / exp_A2
-				+ ( ( obs_U1 - exp_U1 ) * ( obs_U1 - exp_U1 ) ) / exp_U1
-				+ ( ( obs_U2 - exp_U2 ) * ( obs_U2 - exp_U2 ) ) / exp_U2;
-
-			///////////////////////
-			// Multiplicative model
-			mult_p = chiprobP(mult_chisq,1);
-
-		}
-
-
-		double gen_p, dom_p, rec_p;
-		gen_p = dom_p = rec_p = -9;
-		double dom_chisq, rec_chisq, gen_chisq;
-
-
-		if (!invalid)
-		{
-			//////////////////////////////////////////////////////////////
-			// Standard chi-square test, or Fisher's exact
-			if ( par::fisher_test )
-			{
-				////////////
-				// General
-				//
-				table_t t;                                          
-				sizeTable(t,3,2);
-				t[0][0] = A11;
-				t[1][0] = A12;
-				t[2][0] = A22;
-				t[0][1] = U11;
-				t[1][1] = U12;
-				t[2][1] = U22;
-				gen_p = fisher(t);
-
-				////////////
-				//Dominant
-				sizeTable(t,2,2);
-				t[0][0] = A11+A12;
-				t[1][0] = A22;
-				t[0][1] = U11+U12;
-				t[1][1] = U22;
-				dom_p = fisher(t);
-
-				/////////////
-				// Recessive
-				sizeTable(t,2,2);
-				t[0][0] = A11;
-				t[1][0] = A12+A22;
-				t[0][1] = U11;
-				t[1][1] = U12+U22;
-				rec_p = fisher(t);
-			}
-			else
-			{
-				///////////////////////
-				// General model
-				double exp_A11 = (obs_A * obs_11 ) / obs_T;
-				double exp_A12 = (obs_A * obs_12 ) / obs_T;
-				double exp_A22 = (obs_A * obs_22 ) / obs_T;
-				double exp_U11 = (obs_U * obs_11 ) / obs_T;
-				double exp_U12 = (obs_U * obs_12 ) / obs_T;
-				double exp_U22 = (obs_U * obs_22 ) / obs_T;
-
-				gen_chisq =  ( ( A11 - exp_A11 ) * ( A11 - exp_A11 ) ) / exp_A11
-					+ ( ( A12 - exp_A12 ) * ( A12 - exp_A12 ) ) / exp_A12
-					+ ( ( A22 - exp_A22 ) * ( A22 - exp_A22 ) ) / exp_A22
-					+ ( ( U11 - exp_U11 ) * ( U11 - exp_U11 ) ) / exp_U11
-					+ ( ( U12 - exp_U12 ) * ( U12 - exp_U12 ) ) / exp_U12
-					+ ( ( U22 - exp_U22 ) * ( U22 - exp_U22 ) ) / exp_U22;
-				///////////////////////
-				// Dominant (minor allele) (1) model
-				dom_chisq =  ( ( (A11+A12) - (exp_A11+exp_A12) ) * ( (A11+A12) - (exp_A11+exp_A12) ) ) / (exp_A11+exp_A12)
-					+ ( ( A22 - exp_A22 ) * ( A22 - exp_A22 ) ) / exp_A22
-					+ ( ( (U11+U12) - (exp_U11+exp_U12) ) * ( (U11+U12) - (exp_U11+exp_U12) ) ) / (exp_U11+exp_U12)
-					+ ( ( U22 - exp_U22 ) * ( U22 - exp_U22 ) ) / exp_U22;
-				//////////////////////////////////////
-				//Recessive (minor allele) (1) model
-
-				rec_chisq =  ( ( (A22+A12) - (exp_A22+exp_A12) ) * ( (A22+A12) - (exp_A22+exp_A12) ) ) / (exp_A22+exp_A12)
-					+ ( ( A11 - exp_A11 ) * ( A11 - exp_A11 ) ) / exp_A11
-					+ ( ( (U22+U12) - (exp_U22+exp_U12) ) * ( (U22+U12) - (exp_U22+exp_U12) ) ) / (exp_U22+exp_U12)
-					+ ( ( U11 - exp_U11 ) * ( U11 - exp_U11 ) ) / exp_U11;
-
-				//////////////////////////////////
-				// p-values and model comparisons
-				gen_p = chiprobP(gen_chisq,2);
-				dom_p = chiprobP(dom_chisq,1);
-				rec_p = chiprobP(rec_chisq,1);
-			}
-		}
-		////////////////////////////////////////////
-		// Save best p-value for permutation test
-		//////////////////////////
-		// Save the desired result
-		int best = 0 ;
-		if (par::model_perm_best)
-		{
-
-			double best_p = mult_p;
-
-			if (!invalid)
-			{
-				// Skip general model (i.e. just compare ALLELIC, DOM, REC
-
-				//if (gen_p < best_p && gen_p >= 0 ) { best = 2; best_p = gen_p; }   // general
-				if (dom_p < best_p && dom_p >= 0 ) { best_p = dom_p; }   // dom
-				if (rec_p < best_p && rec_p >= 0 ) { best_p = rec_p; }   // rec
-			}
-
-			results[l] = 1-best_p;
-		}
-		else if ( par::model_perm_gen )
-			results[l] = gen_p >= 0 ? 1-gen_p : -9 ;
-		else if ( par::model_perm_dom )
-			results[l] = dom_p >= 0 ? 1-dom_p : -9 ;
-		else if ( par::model_perm_rec )
-			results[l] = rec_p >= 0 ? 1-rec_p : -9;
-		else if ( par::model_perm_trend )
-			results[l] = CA_p >= 0 ? CA_chisq : -9;
-
-
-		if ( ! par::trend_only )
-		{
-			double lOR;
-			double SE;
-			double ci_zt ;
-			stringstream ss;
-			LampAssoc *outputla = new LampAssoc;
-			/////////////
-			// Dominant
-			//printf("lampassoc_snp:%s\n",locus[l]->name.c_str());
-			//fprintf(stderr,"ci_zt:%f\n",ci_zt);
-			if (par::model_perm_dom) 
-			{
-				//fprintf(stderr,"%d/%d\n",l,nl_all);
-				outputla->chr=locus[l]->chr;
-				outputla->snpname=locus[l]->name;
-				outputla->allele1= locus[l]->allele1;
-				outputla->allele2= locus[l]->allele2;
-				outputla->test="DOM";
-				outputla->AFF=int2str(A11+A12)+"/"+int2str(A22);
-				outputla->UNAFF=int2str(U11+U12)+"/"+int2str(U22);
-				if (A22==0 || U11+U12==0){
-					outputla->OR="INF";
-					outputla->CIL="NA";
-					outputla->CIU="NA";
-				}else{
-					outputla->OR= dbl2str((((double) A11+(double)A12 ) 
-								* (double)U22 )/((double)A22 
-								* ( (double)U11+(double)U12 )));
-					lOR=log((((double) A11+(double)A12 )
-								* (double)U22 )/((double)A22
-								* ( (double)U11+(double)U12 )));
-
-					//fprintf(stderr,"%d,%d,%d,%d\n",A11+A12,U22,A22, U11+U12);
-					if(A11+A12==0 ||  U22==0 || A22==0 ||  U11+U12==0){
-						outputla->CIL="NA";
-						outputla->CIU="NA";
-					}else{
-						SE=sqrt( 1/((double) A11+(double)A12 ) 
-								+ 1/(double)U22 + 1/(double)A22 
-								+ 1/( (double)U11+(double)U12 ) );
-						ci_zt = ltqnorm( 1.0 - (1.0 - par::ci_level) / 2.0  );
-						par::ci_zt = ci_zt;
-						//fprintf(stderr,"lOR::%f\n",lOR);
-						//fprintf(stderr,"SE::%f\n",SE);
-						//fprintf(stderr,"par::ci_zt:%f\n",ci_zt);
-						outputla->CIL=dbl2str(exp( lOR - par::ci_zt * SE ));
-						outputla->CIU=dbl2str(exp( lOR + par::ci_zt * SE ));
+			if (par::lamp_allele_test) {
+				odds = calcOddsFunc(ovalues, reverseValueB, ciL, ciU);
+				odds_r = calcOddsFunc(ovalues_r, reverseValueB, ciL, ciU);
+				if (!std::isnan(odds_r) &&
+					(std::isnan(odds) || odds_r > odds)) {
+					ovalues[0][0] = ovalues_r[0][0];
+					ovalues[0][1] = ovalues_r[0][1];
+					ovalues[1][0] = ovalues_r[1][0];
+					ovalues[1][1] = ovalues_r[1][1];
+					auto	i1 = s->one.begin();
+					auto	i2 = s->two.begin();
+					for (; i1 != s->one.end(); ++i1, ++i2) {
+						if (*i1 == *i2) {
+							*i1 = !(*i1);
+							*i2 = !(*i2);
+						}
 					}
-				}
-				if (dom_p < -1)
-				{
-					if ( ! par::fisher_test )
-					{
-						outputla->chsq="NA";
-						outputla->DF="NA";
-					}
-					outputla->P="NA";
-				}
-				else
-				{
-					if ( ! par::fisher_test )
-					{
-						//printf("ss!\n");
-						outputla->chsq=dbl2str(dom_chisq);
-						outputla->DF="1";
-					}
-					outputla->P=dbl2str(dom_p);
+					locus[l]->allele1 = outputla->allele2;
+					locus[l]->allele2 = outputla->allele1;
+					outputla->allele1 = locus[l]->allele1;
+					outputla->allele2 = locus[l]->allele2;
+					outputla->test = outputla->test + "!";
 				}
 			}
-			/////////////
-			// Recessive
-			if (par::model_perm_rec)
-			{
-				outputla->chr=locus[l]->chr;
-				outputla->snpname=locus[l]->name;
-				outputla->allele1= locus[l]->allele1;
-				outputla->allele2= locus[l]->allele2;
-				outputla->test="REC";
-				outputla->AFF=int2str(A11)+"/"+int2str(A12+A22);
-				outputla->UNAFF=int2str(U11)+"/"+int2str(U12+U22);
-				if (A12+A22==0 || U11==0){
-					outputla->OR="INF";
-					outputla->CIL="INF";
-					outputla->CIU="INF";
-				}else{
-					outputla->OR=dbl2str( ((double)A11 * ((double)U12+(double)U22) )/( ((double)A12+(double)A22) * (double)U11 ));
-					lOR=log(((double)A11 * ((double)U12+(double)U22) )/( ((double)A12+(double)A22) * (double)U11 ));
-					if(A11==0 ||  U12+U22==0 || A12+A22==0 ||  U11==0){
-						outputla->CIL="NA";
-						outputla->CIU="NA";
-					}else{
-						SE=sqrt( 1/(double)A11 
-								+ 1/((double)U12+(double)U22) 
-								+ 1/((double)A12+(double)A22) + 1/(double)U11 );
-						ci_zt = ltqnorm( 1 - (1 - par::ci_level) / 2  );
-						outputla->CIL=dbl2str(exp( lOR - par::ci_zt * SE ));
-						outputla->CIU=dbl2str(exp( lOR + par::ci_zt * SE ));
-					}
-				}
-				if (rec_p < -1)
-				{
-					if ( ! par::fisher_test )
-					{
-						outputla->chsq="NA";
-						outputla->DF="NA";
-					}
-					outputla->P="NA";
-				}
-				else
-				{
-					if ( ! par::fisher_test )
-					{
-						outputla->chsq=dbl2str(rec_chisq);
-						outputla->DF="1";
-					}
-					outputla->P=dbl2str(rec_p);
-				}
+
+			pvalue = tFunc->calPValue(ovalues, score, stat_value);
+			double	chi = 0;
+			if (!par::fisher_test) {
+				chi = stat_value;
 			}
-			//printf("lampassoc_snp:%s\n",(outputla->snpname).c_str());
+
+			odds = calcOddsFunc(ovalues, reverseValueB, ciL, ciU);
+
+			outputla->OR = std::isnan(odds) ? "NA" : std::isinf(odds) ? "INF" : dbl2str(odds);
+			outputla->CIL = std::isnan(ciL) ? "NA" : std::isinf(ciL) ? "INF" : dbl2str(ciL);
+			outputla->CIU = std::isnan(ciU) ? "NA" : std::isinf(ciU) ? "INF" : dbl2str(ciU);
+
+			if (reverseValueB) {
+				outputla->AFF=int2str(ovalues[0][1])+"/"+int2str(ovalues[1][1]);
+				outputla->UNAFF=int2str(ovalues[0][0])+"/"+int2str(ovalues[1][0]);
+			} else {
+				outputla->AFF=int2str(ovalues[0][0])+"/"+int2str(ovalues[1][0]);
+				outputla->UNAFF=int2str(ovalues[0][1])+"/"+int2str(ovalues[1][1]);
+			}
+			outputla->chsq = dbl2str(chi);
+			outputla->DF = "1";
+			outputla->P = dbl2str(pvalue);
 			lampassoc.push_back(outputla);
 		}
-		s++;
-		l++;
+		++l;
 	}
 }
 
@@ -604,8 +391,12 @@ void Plink::makeLampInput()
 }
 void Plink::DoLamp()
 {
-	LampCore lampCore;
+	LampCore	lampCore;
+	FastWYCore	fastWYCore;
 	std::string set_method;
+
+	lamp.clear();
+
 	// run LAMP
 	try {
 		std::string log_file;
@@ -618,9 +409,14 @@ void Plink::DoLamp()
 		int hour = d->tm_hour;
 		int minute = d->tm_min;
 		int second = d->tm_sec;
-		log_file = "lamp_log_";// = "lamp_log_" + d.strftime("%Y%m%d") + "_" + d.strftime("%H%M%S") + ".txt"
+		if (!par::fastwy) {
+			log_file = "lamp_log_";// = "lamp_log_" + d.strftime("%Y%m%d") + "_" + d.strftime("%H%M%S") + ".txt"
+		} else {
+			log_file = "fastwy_log_";
+		}
 		log_file += std::to_string(year) + std::to_string(month) + std::to_string(day) + "_";
 		log_file += std::to_string(hour) + std::to_string(minute) + std::to_string(second) + ".txt";
+		log_file = par::output_file_name + "." + log_file;
 		if (par::fisher_test) {
 			set_method = "fisher";
 		} else if (par::assoc_utest) {
@@ -630,71 +426,120 @@ void Plink::DoLamp()
 		}
 		std::string ifile = par::output_file_name + ".item";
 		std::string vfile = par::output_file_name + ".value";
-		lampCore.run(ifile, vfile, par::SGLEV, set_method, -1, log_file, par::lamp_alternative);
+		if (!par::fastwy) {
+			lampCore.run(ifile, vfile, par::SGLEV, set_method, -1, log_file, par::lamp_alternative);
+		} else {
+			fastWYCore.run(ifile, vfile, par::SGLEV, par::fastwy_nperm, set_method, -1, log_file, par::lamp_alternative, false);
+		}
+	} catch (std::string &msg) {
+		error("Lamp error. Please check inputfile. " + msg + "\n");
 	} catch (...) {
 		error("Lamp error. Please check inputfile.\n");
 	}
 	
 	// convert results
 	try {
-		int flag_size = lampCore.getN1();
-		int tran_size = lampCore.getTransactionSize();
-		int k = lampCore.getK();
-		int lam_star = lampCore.getLam_star();
-		std::vector<LampCore::enrich_t*> enrich_lst = lampCore.getEnrich_lst();
-		const std::vector<std::string*> columnid2name = lampCore.getColumnid2name();
-		printLOG("-----lamp::info--------\n");
-		printLOG("# LAMP ver. " + LampCore::getVersion() + "\n");
-		printLOG("# item-file: " + par::output_file_name + ".item" + "\n");
-		printLOG("# value-file: " + par::output_file_name + ".value" + "\n");
-		printLOG("# significance-level: " + to_string(par::SGLEV) + "\n"); 
-		printLOG("# P-value computing procedure: " + set_method);
-		if (0 < par::lamp_alternative) {
-			printLOG(" (greater)");
-		}
-		else if (par::lamp_alternative < 0) {
-			printLOG(" (less)");
-		}
-		else {
-			printLOG(" (two.sided)");
-		}
-		printLOG("\n");
-		printLOG("# # of tested elements: " + to_string(columnid2name.size()) + ", # of samples: " + to_string(tran_size) );
-		if (0 < flag_size)
-			printLOG(", # of positive samples: " + flag_size);
-		printLOG("\n");
-		printLOG("# Adjusted significance level: " + (boost::format("%.5g") % (par::SGLEV/k)).str() + ", "); 
-		printLOG("Correction factor: " + to_string(k) + " (# of target rows >= " + to_string(lam_star) + ")\n");
-		printLOG("# # of significant combinations: " + to_string(enrich_lst.size()) + "\n");
+		if (!par::fastwy) {
+			int flag_size = lampCore.getN1();
+			int tran_size = lampCore.getTransactionSize();
+			int k = lampCore.getK();
+			int lam_star = lampCore.getLam_star();
+			std::vector<LampCore::enrich_t*> enrich_lst = lampCore.getEnrich_lst();
+			const std::vector<std::string*> columnid2name = lampCore.getColumnid2name();
+			printLOG("-----lamp::info--------\n");
+			printLOG("# LAMP ver. " + LampCore::getVersion() + "\n");
+			printLOG("# item-file: " + par::output_file_name + ".item" + "\n");
+			printLOG("# value-file: " + par::output_file_name + ".value" + "\n");
+			printLOG("# significance-level: " + to_string(par::SGLEV) + "\n"); 
+			printLOG("# P-value computing procedure: " + set_method);
+			if (0 < par::lamp_alternative) {
+				printLOG(" (greater)");
+			}
+			else if (par::lamp_alternative < 0) {
+				printLOG(" (less)");
+			}
+			else {
+				printLOG(" (two.sided)");
+			}
+			printLOG("\n");
+			printLOG("# # of tested elements: " + to_string(columnid2name.size()) + ", # of samples: " + to_string(tran_size) );
+			if (0 < flag_size)
+				printLOG(", # of positive samples: " + to_string(flag_size));
+			printLOG("\n");
+			printLOG("# Adjusted significance level: " + (boost::format("%.5g") % (par::SGLEV/k)).str() + ", "); 
+			printLOG("Correction factor: " + to_string(k) + " (# of target rows >= " + to_string(lam_star) + ")\n");
+			printLOG("# # of significant combinations: " + to_string(enrich_lst.size()) + "\n");
 
-		// if (0 < enrich_lst.size() && 0 < flag_size) {
-		if (0 < enrich_lst.size()) {
-			std::sort(enrich_lst.begin(), enrich_lst.end(), LampCore::cmpEnrich);
-			int rank = 0;
-			for (LampCore::enrich_t* l : enrich_lst) {
-				rank = rank + 1;
-				Lamp * res_lamp = new Lamp;
-				int x = flag_size - l->stat_score;
-				int y = l->p - l->len;
-				int z = lampCore.getTransactionSize() - (l->stat_score + x + y);
-				res_lamp->n11 = l->stat_score;
-				res_lamp->n10 = x;
-				res_lamp->n01 = y;
-				res_lamp->n00 = z;
-				res_lamp->Rank = to_string(rank);
-				res_lamp->Raw_P_value = (boost::format("%.5g") % (l->p)).str();
-				res_lamp->Ajusted_P_value = (boost::format("%.5g") % (k * l->p)).str();
-				std::string out_column = "";
-				for (int i : *l->item_set) {
-					out_column += *columnid2name[i-1] + ",";
+			// if (0 < enrich_lst.size() && 0 < flag_size) {
+			if (0 < enrich_lst.size()) {
+				std::sort(enrich_lst.begin(), enrich_lst.end(), LampCore::cmpEnrich);
+				int rank = 0;
+				for (LampCore::enrich_t* l : enrich_lst) {
+					rank = rank + 1;
+					Lamp * res_lamp = new Lamp;
+					int x = flag_size - l->stat_score;
+					int y = l->len - l->stat_score;
+					int z = lampCore.getTransactionSize() - (l->stat_score + x + y);
+					if (par::lamp_alternative < 0) {
+						z = flag_size - y;
+						x = lampCore.getTransactionSize() - (l->stat_score + y + z);
+					}
+					res_lamp->n11 = l->stat_score;
+					res_lamp->n10 = x;
+					res_lamp->n01 = y;
+					res_lamp->n00 = z;
+					res_lamp->Rank = to_string(rank);
+					res_lamp->Raw_P_value = (boost::format("%.5g") % (l->p)).str();
+					res_lamp->Ajusted_P_value = (boost::format("%.5g") % (k * l->p)).str();
+					std::string out_column = "";
+					for (int i : *l->item_set) {
+						out_column += *columnid2name[i-1] + ",";
+					}
+					out_column.erase( --out_column.end() );
+					res_lamp->COMB = out_column;
+					lamp.push_back(res_lamp);
 				}
-				out_column.erase( --out_column.end() );
-				res_lamp->COMB = out_column;
-				lamp.push_back(res_lamp);
+			} else {
+			  printLOG("No significant SNP combinations were detected.\n");
 			}
 		} else {
-		  printLOG("No significant SNP combinations were detected.\n");
+			const auto&	result_list = fastWYCore.getResultList();
+			int flag_size = fastWYCore.getN1();
+			printLOG("-----fastWY::info--------\n");
+			printLOG(fastWYCore.getResultInfo());
+			if (result_list.size() > 0) {
+				int rank = 0;
+				for (const auto& l : result_list) {
+					rank = rank + 1;
+					Lamp * res_lamp = new Lamp;
+					int x = flag_size - l.stat_score;
+					int y = l.target_rows - l.stat_score;
+					int z = fastWYCore.getTransactionSize() - (l.stat_score + x + y);
+					if (par::lamp_alternative < 0) {
+						z = flag_size - y;
+						x = fastWYCore.getTransactionSize() - (l.stat_score + y + z);
+					}
+					res_lamp->n11 = l.stat_score;
+					res_lamp->n10 = x;
+					res_lamp->n01 = y;
+					res_lamp->n00 = z;
+					res_lamp->Rank = to_string(rank);
+					res_lamp->Raw_P_value = (boost::format("%.5g") % (l.p)).str();
+					res_lamp->Ajusted_P_value = (boost::format("%.5g") % (l.adjusted_p)).str();
+					std::string out_column = "";
+					for (const auto& i : l.comb) {
+						out_column += i + ",";
+					}
+					out_column.erase( --out_column.end() );
+					res_lamp->COMB = out_column;
+					lamp.push_back(res_lamp);
+				}
+			} else {
+			  printLOG("No significant SNP combinations were detected.\n");
+			}
 		}
+	} catch (std::string &msg) {
+		error("Lamp error. Please check setting. " + msg + "\n");
 	} catch (...) {
 		error("Lamp error. Please check setting.\n");
 	}
@@ -711,6 +556,7 @@ void Plink::setLampformat()
 	lamplink_format["UNAFF"]=14;
 	lamplink_format["CHISQ"]=12;
 	lamplink_format["DF"]=4;
+	lamplink_format["U"]=12;
 	lamplink_format["P"]=12;
 	lamplink_format["OR"]=12;
 	lamplink_format["LXX"]=12;
@@ -730,35 +576,45 @@ void Plink::outputLamplink()
 {
 	ofstream ASC,lASC;
 	string outputfile=par::output_file_name + ".lamplink";
-	string loutputfile=par::output_file_name + ".lamp";
+	string loutputfile;
+	if (par::fastwy) {
+		loutputfile=par::output_file_name + ".fastwy";
+	} else {
+		loutputfile=par::output_file_name + ".lamp";
+	}
 	lASC.open(loutputfile.c_str(),ios::out);
 	ASC.open(outputfile.c_str(),ios::out);
 	printf("Plink::outputLamplink\n");
 	//make_header
-	ASC << setw(4) <<"CHR" <<" "
-		<< setw(par::pp_maxsnp) << "SNP" << " "
-		<< setw(4) << "A1" << " "
-		<< setw(4) << "A2" << " "
-		<< setw(8) << "TEST" << " "
-		<< setw(14) << "AFF" << " "
-		<< setw(14) << "UNAFF" << " " ;
-	if ( ! par::fisher_test )
-		ASC << setw(12) << "CHISQ" << " "
-			<< setw(4) << "DF" << " ";
-	ASC << setw(12) << "P" << " " 
-		<<setw(12)<<"OR"<<" ";
-	if (par::display_ci)
-		ASC <<setw(12) << string("L"+dbl2str(par::ci_level*100)) <<" "
-			<<setw(12)<<string("U"+dbl2str(par::ci_level*100)) <<" ";
+	ASC << setw(lamplink_format["CHR"]) <<"CHR" <<" "
+		<< setw(lamplink_format["SNP"]) << "SNP" << " "
+		<< setw(lamplink_format["A1"]) << "A1" << " "
+		<< setw(lamplink_format["A2"]) << "A2" << " "
+		<< setw(lamplink_format["TEST"]) << "TEST" << " ";
+	if (!par::assoc_utest) {
+		ASC << setw(lamplink_format["AFF"]) << "AFF" << " "
+			<< setw(lamplink_format["UNAFF"]) << "UNAFF" << " " ;
+		if ( ! par::fisher_test )
+			ASC << setw(lamplink_format["CHISQ"]) << "CHISQ" << " "
+				<< setw(lamplink_format["DF"]) << "DF" << " ";
+		ASC << setw(lamplink_format["P"]) << "P" << " "
+			<<setw(lamplink_format["OR"])<< "OR"<< " ";
+		if (par::display_ci)
+			ASC <<setw(lamplink_format["LXX"]) << string("L"+dbl2str(par::ci_level*100)) <<" "
+				<<setw(lamplink_format["UXX"])<<string("U"+dbl2str(par::ci_level*100)) <<" ";
+	} else {
+		ASC << setw(lamplink_format["U"]) << "U" << " ";
+		ASC << setw(lamplink_format["P"]) << "P" << " ";
+	}
 
 	//make_header lampfile
-	lASC << setw(10) <<"COMBID" <<" " 
-		<<setw(12)<< "Raw_P" <<" "
-		<<setw(12)<<"Adjusted_P" <<" ";
+	lASC << setw(lamp_format["COMBID"]) <<"COMBID" <<" "
+		<<setw(lamp_format["Raw_P"])<< "Raw_P" <<" "
+		<<setw(lamp_format["Adjusted_P"])<<"Adjusted_P" <<" ";
 	if (par::display_ci)
-		lASC	<<setw(12)<<"OR"
-			<<setw(12) << string("L"+dbl2str(par::ci_level*100)) <<" "
-			<<setw(12)<<string("U"+dbl2str(par::ci_level*100)) <<" ";
+		lASC	<<setw(lamp_format["OR"])<<"OR" << " "
+			<<setw(lamp_format["LXX"]) << string("L"+dbl2str(par::ci_level*100)) <<" "
+			<<setw(lamp_format["UXX"])<<string("U"+dbl2str(par::ci_level*100)) <<" ";
 	lASC << "COMB" <<"\n"; 
 	map<string,string> SNP_COMB ;
 	vector<Lamp *>::iterator glamp=lamp.begin();
@@ -767,33 +623,33 @@ void Plink::outputLamplink()
 	while(glamp != lamp.end())
 	{
 		SNP_COMB[string("COMB"+int2str(n))]=(*glamp)->COMB;
-		ASC<<setw(8)<<string("COMB"+int2str(n))<<" ";
+		ASC<<setw(lamplink_format["COMB"])<<string("COMB"+int2str(n))<<" ";
 		//make lamp file
-		lASC << setw(10) <<"COMB"+int2str(n) <<" "
-			<<setw(12)<< (*glamp)->Raw_P_value <<" "
-			<<setw(12)<< (*glamp)->Ajusted_P_value<<" ";
+		lASC << setw(lamp_format["COMBID"]) <<"COMB"+int2str(n) <<" "
+			<<setw(lamp_format["Raw_P"])<< (*glamp)->Raw_P_value <<" "
+			<<setw(lamp_format["Adjusted_P"])<< (*glamp)->Ajusted_P_value<<" ";
 		if (par::display_ci)
 		{
 			double lOR;
 			double SE;
 			double ci_zt ;
-			fprintf(stderr,"%d,%d,%d,%d",(*glamp)->n11,(*glamp)->n00,(*glamp)->n10,(*glamp)->n01);
+//			fprintf(stderr,"%d,%d,%d,%d",(*glamp)->n11,(*glamp)->n00,(*glamp)->n10,(*glamp)->n01);
 			if((*glamp)->n10==0 || (*glamp)->n01==0)
 			{
-				lASC    <<setw(12)<<"INF" <<" "
-					<<setw(12) <<"NA" <<" "
-					<< setw(12)<<"NA"<<" ";
+				lASC    <<setw(lamp_format["OR"])<<"INF" <<" "
+					<<setw(lamp_format["LXX"]) <<"NA" <<" "
+					<< setw(lamp_format["UXX"])<<"NA"<<" ";
 			}else{
-				lASC <<setw(12)<< dbl2str( ((double)(*glamp)->n11 * (double)(*glamp)->n00 )
+				lASC <<setw(lamp_format["OR"])<< dbl2str( ((double)(*glamp)->n11 * (double)(*glamp)->n00 )
 						/((double)(*glamp)->n10 * (double)(*glamp)->n01)) <<" ";
 				if((*glamp)->n11==0 || (*glamp)->n00==0){
-					lASC <<setw(12) <<"NA" <<" "<< setw(12)<<"NA"<<" ";
+					lASC <<setw(lamp_format["LXX"]) <<"NA" <<" "<< setw(lamp_format["UXX"])<<"NA"<<" ";
 				}else{
 					SE=sqrt(1/(double)(*glamp)->n11 + 1/(double)(*glamp)->n10 + 1/(double)(*glamp)->n01 + 1/(double)(*glamp)->n00 );
 					ci_zt = ltqnorm( 1 - (1 - par::ci_level) / 2  );
 					lOR=log(((double)(*glamp)->n11 * (double)(*glamp)->n00)/((double)(*glamp)->n10 * (double)(*glamp)->n01));
-					lASC <<setw(12) <<dbl2str(exp( lOR - par::ci_zt * SE )) <<" "
-						<< setw(12)<<dbl2str(exp( lOR + par::ci_zt * SE )) <<" ";
+					lASC <<setw(lamp_format["LXX"]) <<dbl2str(exp( lOR - par::ci_zt * SE )) <<" "
+						<< setw(lamp_format["UXX"])<<dbl2str(exp( lOR + par::ci_zt * SE )) <<" ";
 				}
 			}
 		}
@@ -808,21 +664,26 @@ void Plink::outputLamplink()
 	//make_data
 	while(glampassoc != lampassoc.end())
 	{
-		ASC << setw(4) << int2str((*glampassoc)->chr) << " "
-			<<setw(par::pp_maxsnp)<< (*glampassoc)->snpname <<" "
-			<<setw(4)<< (*glampassoc)->allele1 <<" "
-			<<setw(4)<< (*glampassoc)->allele2 <<" "
-			<<setw(8)<< (*glampassoc)->test <<" "
-			<<setw(14)<<(*glampassoc)->AFF <<" "
-			<<setw(14)<<(*glampassoc)->UNAFF<<" ";
-		if(! par::fisher_test)
-			ASC<< setw(12) << (*glampassoc)->chsq 
-				<<setw(4)<<(*glampassoc)->DF <<" ";
-		ASC << setw(12) << (*glampassoc)->P << " "
-			<<setw(12)<< (*glampassoc)->OR <<" ";
-		if (par::display_ci)
-			ASC <<setw(12) << (*glampassoc)->CIL <<" "
-				<<setw(12)<< (*glampassoc)->CIU <<" ";
+		ASC << setw(lamplink_format["CHR"]) << int2str((*glampassoc)->chr) << " "
+			<<setw(lamplink_format["SNP"])<< (*glampassoc)->snpname <<" "
+			<<setw(lamplink_format["A1"])<< (*glampassoc)->allele1 <<" "
+			<<setw(lamplink_format["A2"])<< (*glampassoc)->allele2 <<" "
+			<<setw(lamplink_format["TEST"])<< (*glampassoc)->test <<" ";
+		if (!par::assoc_utest) {
+			ASC <<setw(lamplink_format["AFF"])<<(*glampassoc)->AFF <<" "
+				<<setw(lamplink_format["UNAFF"])<<(*glampassoc)->UNAFF<<" ";
+			if(! par::fisher_test)
+				ASC<< setw(lamplink_format["CHISQ"]) << (*glampassoc)->chsq
+					<<setw(lamplink_format["DF"])<<(*glampassoc)->DF <<" ";
+			ASC << setw(lamplink_format["P"]) << (*glampassoc)->P << " "
+				<<setw(lamplink_format["OR"])<< (*glampassoc)->OR <<" ";
+			if (par::display_ci)
+				ASC <<setw(lamplink_format["LXX"]) << (*glampassoc)->CIL <<" "
+					<<setw(lamplink_format["UXX"])<< (*glampassoc)->CIU <<" ";
+		} else {
+			ASC << setw(lamplink_format["U"]) << (*glampassoc)->U << " ";
+			ASC << setw(lamplink_format["P"]) << (*glampassoc)->P << " ";
+		}
 		n=1;
 
 		while( SNP_COMB.find(string("COMB"+int2str(n))) != SNP_COMB.end())
@@ -837,8 +698,8 @@ void Plink::outputLamplink()
 				if((*icomb_snp).compare((*glampassoc)->snpname)==0)res=1;
 				icomb_snp++;
 			}
-			if(res==1) ASC<<setw(8)<<"1"<<" ";
-			else ASC<<setw(8)<<"0"<<" ";
+			if(res==1) ASC<<setw(lamplink_format["COMB"])<<"1"<<" ";
+			else ASC<<setw(lamplink_format["COMB"])<<"0"<<" ";
 			n++;
 		}
 		ASC<<"\n";

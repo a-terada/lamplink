@@ -46,6 +46,7 @@
 #include <map>
 #include <unordered_set>
 #include <limits>
+#include <cmath>
 #include <boost/algorithm/string.hpp>
 #include "Transaction.h"
 

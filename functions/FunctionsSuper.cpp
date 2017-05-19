@@ -39,8 +39,25 @@
  * @param alternative hypothesis, 1 -> greater, 0 -> two sided, -1 -> less
  */
 FunctionsSuper::FunctionsSuper(const std::vector<Transaction*>& transaction_list, int alternative) :
-		alternative(alternative), transaction_list(transaction_list)
+		alternative(alternative), transaction_list(&transaction_list), calTime(0)
 {
+	__t_size = (int)transaction_list.size();
+	__f_size = 0;
+	calTime = 0;
+}
+
+/**
+ * Constructor
+ * @param transaction_size all transaction size
+ * @param n1_count transaction size which have flag = 1 (n1)
+ * @param alternative hypothesis, 1 -> greater, 0 -> two sided, -1 -> less
+ */
+FunctionsSuper::FunctionsSuper(int transaction_size, int n1_count, int alternative) :
+		alternative(alternative), transaction_list(nullptr), calTime(0)
+{
+	__t_size = transaction_size;
+	__f_size = n1_count;
+	calTime = 0;
 }
 
 /**
@@ -55,7 +72,7 @@ FunctionsSuper::~FunctionsSuper() {
  */
 double FunctionsSuper::sumValue() {
 	double f_size = 0.0f;
-	for (Transaction* t : transaction_list) {
+	for (Transaction* t : *transaction_list) {
 		f_size += t->getValue();
 	}
 	return f_size;
@@ -102,7 +119,7 @@ void FunctionsSuper::contingencyTable(const std::vector<int>& flag_transactions_
 	double total_row1 = flag_transactions_id.size(); // count all size that flag = 1 (x of paper)
 	double total_row = 0.0f;
 	for (int i : flag_transactions_id) {
-		Transaction* t = transaction_list[i];
+		Transaction* t = (*transaction_list)[i];
 		// If t flag = 1, then sum_has_flag ++.
 		total_row += t->getValue();
 	}

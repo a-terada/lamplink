@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, LAMP development team
+ * Copyright (c) 2013-2017, LAMP development team
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -185,7 +185,7 @@ void LampCore::print(std::string& transaction_file, std::string& flag_file, doub
 }
 
 /**
- * Reverse the observed values for alternative = 'less'.
+ * Reverse the observed values for alternative = 'less'. (BINARY_METHODS only)
  * 
  * @param transaction_list list of itemset and expression value.
  * @param set_method statistical test name. 
@@ -195,12 +195,8 @@ void LampCore::reverseValue(std::vector<Transaction*>& transaction_list, const s
 		for (Transaction* t : transaction_list) {
 			t->setValue(1.0f - t->getValue());
 		}
-	} else {
-		for (Transaction* t : transaction_list) {
-			t->setValue(0.0f - t->getValue());
-		}
+		std::reverse(transaction_list.begin(), transaction_list.end());
 	}
-	std::reverse(transaction_list.begin(), transaction_list.end()); 
 }
 
 /**
@@ -282,6 +278,10 @@ int LampCore::runMultTest(const std::vector<Transaction*>& transaction_list, std
 			else {
 				lam_star = breadthFirst( trans4lcm, max_comb, threshold, lam, outlog );
 			}
+		}
+
+		if (lam_star > max_lambda) {//LCM ERROR???
+			lam_star = max_lambda;
 		}
 
 		fre_pattern->frequentPatterns( trans4lcm, lam_star, max_comb ); // P_lambda* at line 13
@@ -378,11 +378,11 @@ int LampCore::breadthFirst( const std::string& trans4lcm, int max_comb,
 		
 		double f_lam_1 = calBound( lam-1 ); // f(lam-1)
 		outlog << "  f(" << (lam-1) << ") = " << (f_lam_1) << std::endl;
-		int bottom;
+		double bottom;
 		if (f_lam_1 == 0) {
-			bottom = std::numeric_limits<int>::max();//.maxint;
+			bottom = std::numeric_limits<double>::max();//.maxint;
 		} else {
-			bottom = (int)(threshold / f_lam_1) + 1; // bottom of line 5 of Algorithm
+			bottom = std::floor(threshold / f_lam_1) + 1; // bottom of line 5 of Algorithm
 		}
 		double f_lam = calBound( lam ); // f(lam)
 		outlog << "  f(" << lam << ") = " << f_lam << std::endl;
@@ -394,18 +394,18 @@ int LampCore::breadthFirst( const std::string& trans4lcm, int max_comb,
 					" is larger than f(" + std::to_string(lam - 1) + ") = " +
 					(boost::format("%.3g") % f_lam_1).str());
 		}
-		int top;
+		double top;
 		if (f_lam == 0) {
-			top = std::numeric_limits<int>::max();
+			top = std::numeric_limits<double>::max();
 		} else {
-			top = (int)(threshold / f_lam); // top of line 5 of Algorithm
+			top = std::floor(threshold / f_lam); // top of line 5 of Algorithm
 		}
 		outlog << "  " << bottom << " <= m_lam:" << m_lambda << " <= " << top << "?" << std::endl;
-		if (bottom <= m_lambda && m_lambda <= top) { // branch on condition of line 5
+		if (bottom <= (double)m_lambda && (double)m_lambda <= top) { // branch on condition of line 5
 			break;
 		}
 		outlog << "  " << m_lambda << " > " << top << "?" << std::endl;
-		if (top < m_lambda) { // branch on condition of line 8
+		if (top < (double)m_lambda) { // branch on condition of line 8
 			break;
 		}
 		lam = lam -1;
@@ -456,8 +456,8 @@ void LampCore::fwerControll(double max_lambda, double threshold, std::ostream& o
 			for (int t : *item_trans_list[j]->tran_list) {
 				flag_transaction_list.push_back( t );
 			}
-			double stat_score;
-			double p = func_f->calPValue(flag_transaction_list, stat_score);
+			double stat_score, stat_value;
+			double p = func_f->calPValue(flag_transaction_list, stat_score, stat_value);
 			outlog << "p: " << std::to_string(p) << std::endl;
 			if (p < (threshold / k)) {
 				enrich_t* enrich = new enrich_t{ item_set, p,

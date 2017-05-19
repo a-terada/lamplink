@@ -62,6 +62,17 @@ Functions4chi::Functions4chi(const std::vector<Transaction*>& transaction_list, 
 }
 
 /**
+ * Constructor
+ * @param transaction_size all transaction size
+ * @param n1_count transaction size which have flag = 1 (n1)
+ * @param alternative hypothesis, 1 -> greater, 0 -> two sided, -1 -> less
+ */
+Functions4chi::Functions4chi(int transaction_size, int n1_count, int alternative) :
+		FunctionsSuper(transaction_size, n1_count, alternative)
+{
+}
+
+/**
  * Destructor
  */
 Functions4chi::~Functions4chi() {
@@ -181,9 +192,19 @@ double Functions4chi::__chi2pval(double chi) {
  * @param score return value
  * @return 
  */
-double Functions4chi::calPValue(std::vector<int>& flag_transactions_id, double& score) {
+double Functions4chi::calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) {
 	double ovalues[2][2] = {{0, 0},{0, 0}};
 	contingencyTable( flag_transactions_id, __t_size, __f_size, ovalues );
+	return calPValue(ovalues, score, statistic);
+}
+
+/**
+ * Calculate p-value by using chi-square test.
+ * @param ovalues
+ * @param score return value
+ * @return 
+ */
+double Functions4chi::calPValue(const double (&ovalues)[2][2], double& score, double& statistic) {
 	double total_row1 = ovalues[0][0] + ovalues[0][1];//sum( ovalues[0] );
 	double p = __pvalTable.getValue( total_row1, ovalues[0][0] );
 	double chi = __chiTable.getValue( total_row1, ovalues[0][0] );
@@ -201,7 +222,9 @@ double Functions4chi::calPValue(std::vector<int>& flag_transactions_id, double& 
 		}
 		__pvalTable.putValue( total_row1, ovalues[0][0], p );
 		__chiTable.putValue( total_row1, ovalues[0][0], chi );
+		++calTime;
 	}
 	score = ovalues[0][0];
+	statistic = chi;
 	return p;
 }

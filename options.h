@@ -1175,12 +1175,15 @@ class par {
   static double SGLEV;
   static double MAF_UPPER;
   static int lamp_alternative;
+  static bool lamp_allele_test;
 
   static bool read_combfile;
   static string combfilename;
   static bool lamp_ld_remove;
   static double LAMP_R2;
  
+  static bool fastwy;
+  static int fastwy_nperm;
 };
 
 

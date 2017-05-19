@@ -45,10 +45,12 @@
 class Functions4chi : public FunctionsSuper {
 public:
 	Functions4chi(const std::vector<Transaction*>& transaction_list, int alternative);
+	Functions4chi(int transaction_size, int n1_count, int alternative);
 	virtual ~Functions4chi();
 
 	double funcF(int x) override;
-	double calPValue(std::vector<int>& flag_transactions_id, double& score) override;
+	double calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) override;
+	double calPValue(const double (&ovalues)[2][2], double& score, double& statistic) override;
 
 private:
 	double __probabilityTable(const double (&ovalues)[2][2]);

@@ -35,6 +35,7 @@
 
 #include "ReadFile.h"
 
+#include <cmath>
 #include <boost/algorithm/string.hpp>
 
 /**
@@ -70,7 +71,7 @@ void ReadFile::readFiles(const std::string& transaction_file, const std::string&
 	readTransactionFile(transaction_file, delm);
 	readValueFile(value_file, delm);
 	// sort transaction_list according to transaction_value
-	std::sort(transaction_list.begin(), transaction_list.end(), Transaction::comparator);
+	std::stable_sort(transaction_list.begin(), transaction_list.end(), Transaction::comparator);
 	// Generate IDs to transactions
 	for (int i = 0; i < (int)transaction_list.size(); i++) {
 		Transaction* t = transaction_list[i];

@@ -1,10 +1,10 @@
 
 //////////////////////////////////////////////////////////////////
 //                                                              //
-//          LAMPLINK (c) 2015 LAMP development team             //
+//          LAMPLINK (c) 2015-2017 LAMP development team        //
 //                                                              //
 // This code is modified from PLINK v1.07                       //
-// (http://pngu.mgh.harvard.edu/~purcell/plink/) to implement   //
+// (http://zzz.bwh.harvard.edu/plink/) to implement             //
 // additional options (--lamp and --lamp-ld-removed)            //
 // for the combinatorial detection with LAMP                    //
 // (http://a-terada.github.io/lamp/).                           //
@@ -67,9 +67,9 @@ int main(int argc, char* argv[])
   
   set_new_handler(NoMem);
 
-  PVERSION = "1.11";        // 4 chars
+  PVERSION = "1.12";        // 4 chars
   PREL = " ";               // space or p (full, or prelease) 
-  PDATE    = "18/Aug/2016"; // 11 chars
+  PDATE    = "18/May/2017"; // 11 chars
 
 
   //////////////////
@@ -1693,7 +1693,7 @@ int main(int argc, char* argv[])
 	if(par::lamp)
 	{
 		P.setLampformat();
-		P.calcAssociationWithPermutation4Lamp(perm);
+//		P.calcAssociationWithPermutation4Lamp(perm);
 		P.LampAssocFull(perm);
 		P.makeLampInput();
 		P.DoLamp();

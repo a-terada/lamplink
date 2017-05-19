@@ -58,6 +58,7 @@ class LampAssoc
 	string UNAFF;
 	string chsq;
 	string DF;
+	string U;
 	string P;
 	string OR;
 	string CIL;

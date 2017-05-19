@@ -62,6 +62,17 @@ Functions4fisher::Functions4fisher(const std::vector<Transaction*>& transaction_
 }
 
 /**
+ * Constructor
+ * @param transaction_size all transaction size
+ * @param n1_count transaction size which have flag = 1 (n1)
+ * @param alternative hypothesis, 1 -> greater, 0 -> two sided, -1 -> less
+ */
+Functions4fisher::Functions4fisher(int transaction_size, int n1_count, int alternative) :
+		FunctionsSuper(transaction_size, n1_count, alternative)
+{
+}
+
+/**
  * Destructor
  */
 Functions4fisher::~Functions4fisher() {
@@ -133,9 +144,19 @@ double Functions4fisher::__probability(int x, int a) {
  * @param score return value
  * @return 
  */
-double Functions4fisher::calPValue(std::vector<int>& flag_transactions_id, double& score) {
+double Functions4fisher::calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) {
 	double ovalues[2][2] = {{0, 0},{0, 0}};
 	contingencyTable( flag_transactions_id, __t_size, __f_size, ovalues);
+	return calPValue(ovalues, score, statistic);
+}
+
+/**
+ * Calculate p-value by using fisher's exact test.
+ * @param ovalues
+ * @param score return value
+ * @return 
+ */
+double Functions4fisher::calPValue(const double (&ovalues)[2][2], double& score, double& statistic) {
 	int total_col1 = __f_size;
 	int total_row1 = ovalues[0][0] + ovalues[0][1];//sum( ovalues[0] );
 	double p = __pvalTable.getValue( total_row1, ovalues[0][0] );

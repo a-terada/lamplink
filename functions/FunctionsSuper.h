@@ -44,6 +44,7 @@
 class FunctionsSuper {
 public:
 	FunctionsSuper(const std::vector<Transaction*>& transaction_list, int alternative);
+	FunctionsSuper(int transaction_size, int n1_count, int alternative);
 	virtual ~FunctionsSuper();
 	
 	/**
@@ -72,15 +73,33 @@ public:
 	 * @param score
 	 * @return 
 	 */
-	virtual double calPValue(std::vector<int>& flag_transactions_id, double& score) = 0;
-	
+	virtual double calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) = 0;
+	/**
+	 * calculate p-value
+	 * @param ovalues
+	 * @param score
+	 * @return 
+	 */
+	virtual double calPValue(const double (&ovalues)[2][2], double& score, double& statistic) { return -1; };
+
+	/**
+	 * get total number of calculate P-value.
+	 * @return total number of calculate P-value
+	 **/
+	int getCalTime() { return calTime; }
+	/**
+	 * set total number of calculate P-value to zero.
+	 **/
+	void resetCalTime() { calTime = 0; }
+
 protected:
 	void contingencyTable(const std::vector<int>& flag_transactions_id, int total, int total_col1, double (&ovalues)[2][2]);
 
 	int __f_size; /**< transaction size which have flag = 1 (n1) */
 	int __t_size; /**< all transaction size */
 	int alternative; /**< alternative hypothesis. greater or less -> 1, two.sided -> 0. */
-	const std::vector<Transaction*>& transaction_list; /**< transaction list */
+	const std::vector<Transaction*>* transaction_list; /**< transaction list */
+	int	calTime; /**< total number of calculate P-value */
 	
 private:
 	const double pi2 = 0.398942280401432677940; /**< constant value */

@@ -27,20 +27,19 @@ WITH_WEBCHECK = 1
 FORCE_32BIT = 
 WITH_ZLIB = 1
 WITH_LAPACK = 
-WITH_BOOST = 
-#/usr/local
+WITH_BOOST = /usr/local
 #WITH_BOOST = 
 FORCE_DYNAMIC = 
 PARENT_DIR = $(realpath ..)
 
 # Put C++ compiler here; Windows has it's own specific version
 CXX_UNIX = g++
-CXX_WIN = c:\bin\mingw\bin\mingw32-g++.exe
+CXX_WIN = g++
 
 
 # Put C compiler here; Windows has it's own specific version
 CC_UNIX = gcc
-CC_WIN = c:\bin\mingw\bin\mingw32-gcc.exe
+CC_WIN = gcc
 
 
 # Any other compiler flags here ( -Wall, -g, etc)
@@ -64,6 +63,9 @@ OUTPUT = $(realpath ..)/lamplink
 
 ifeq ($(SYS),WIN)
  CXXFLAGS += -DWIN -static
+ LIB += -lboost_filesystem-mt
+ LIB += -lboost_iostreams-mt
+ LIB += -lboost_system-mt
  CXX = $(CXX_WIN)
  CC = $(CC_WIN)
  ifndef FORCE_DYNAMIC
@@ -143,7 +145,7 @@ nlist.cpp whap.cpp simul.cpp gvar.cpp cnv.cpp step.cpp greport.cpp	\
 flip.cpp qualscores.cpp cnvqt.cpp cfamily.cpp setscreen.cpp idhelp.cpp	\
 tag.cpp hapglm.cpp lookup2.cpp blox.cpp zed.cpp dosage.cpp annot.cpp	\
 metaanal.cpp lamp.cpp	\
-ReadFile.cpp Transaction.cpp LampCore.cpp	\
+ReadFile.cpp Transaction.cpp LampCore.cpp FastWYCore.cpp	\
 frepattern/Node.cpp frepattern/LCM.cpp	\
 functions/Functions4chi.cpp functions/Functions4fisher.cpp	\
 functions/Functions4u_test.cpp functions/FunctionsSuper.cpp	\
@@ -154,7 +156,7 @@ HDR = plink.h options.h helper.h stats.h crandom.h sets.h phase.h	\
 perm.h model.h linear.h logistic.h dcdflib.h ipmpar.h cdflib.h		\
 fisher.h sockets.h haplowindow.h genogroup.h clumpld.h nlist.h whap.h	\
 gvar.h cnv.h cfamily.h idhelp.h zed.h lamp.h	\
-ReadFile.h Transaction.h LampCore.h	\
+ReadFile.h Transaction.h LampCore.h FastWYCore.h	\
 frepattern/Node.h frepattern/LCM.h	\
 functions/Functions4chi.h functions/Functions4fisher.h	\
 functions/Functions4u_test.h functions/FunctionsSuper.h	\

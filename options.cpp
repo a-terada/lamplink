@@ -1067,7 +1067,11 @@ bool par::sglev= false;
 double par::SGLEV;
 double par::MAF_UPPER =0.15;
 int par::lamp_alternative= 0; // 1:greater, 0:two.sided, -1:less
+bool par::lamp_allele_test = false;
 bool par::read_combfile= false ;
 string par::combfilename="";
 bool par::lamp_ld_remove= false;
 double par::LAMP_R2= 0.8;
+bool par::fastwy = false;
+int par::fastwy_nperm = 1000;
+

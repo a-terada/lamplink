@@ -43,13 +43,14 @@
 class Functions4fisher : public FunctionsSuper {
 public:
 	Functions4fisher(const std::vector<Transaction*>& transaction_list, int alternative);
+	Functions4fisher(int transaction_size, int n1_count, int alternative);
 	virtual ~Functions4fisher();
 	
 	double funcF(int x) override;
-	double calPValue(std::vector<int>& flag_transactions_id, double& score) override;
+	double calPValue(const std::vector<int>& flag_transactions_id, double& score, double& statistic) override;
+	double calPValue(const double (&ovalues)[2][2], double& score, double& statistic) override;
 	
 private:
-	int calTime; /**< Total number of calculate P-value */
 	PvalTable __occrTable; /**< occurrence probability */
 	PvalTable __pvalTable; /**< p-value by using fisher's exact test */
 	
